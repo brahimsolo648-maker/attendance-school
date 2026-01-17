@@ -34,9 +34,22 @@ const TeacherAuth = () => {
 
   // Redirect if already authenticated as teacher
   useEffect(() => {
-    if (!authLoading && user && isTeacher) {
-      navigate('/teacher/dashboard', { replace: true });
-    }
+    const checkAndRedirect = async () => {
+      if (!authLoading && user) {
+        // Check if user has teacher role
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'teacher')
+          .maybeSingle();
+        
+        if (roleData || isTeacher) {
+          navigate('/teacher/dashboard', { replace: true });
+        }
+      }
+    };
+    checkAndRedirect();
   }, [user, isTeacher, authLoading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -97,7 +110,7 @@ const TeacherAuth = () => {
 
       // If teacher has user_id, sign in with password
       if (teacherData.user_id) {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: loginEmail.trim().toLowerCase(),
           password: loginPassword,
         });
@@ -112,6 +125,22 @@ const TeacherAuth = () => {
           });
           setIsLoading(false);
           return;
+        }
+
+        // Ensure teacher role exists
+        if (signInData.user) {
+          const { data: existingRole } = await supabase
+            .from('user_roles')
+            .select('id')
+            .eq('user_id', signInData.user.id)
+            .eq('role', 'teacher')
+            .maybeSingle();
+
+          if (!existingRole) {
+            await supabase
+              .from('user_roles')
+              .insert({ user_id: signInData.user.id, role: 'teacher' });
+          }
         }
 
         toast({
@@ -132,9 +161,9 @@ const TeacherAuth = () => {
         });
 
         if (signUpError) {
-          // User might already exist
+          // User might already exist - try to sign in
           if (signUpError.message.includes('User already registered')) {
-            const { error: signInError } = await supabase.auth.signInWithPassword({
+            const { data: existingSignIn, error: signInError } = await supabase.auth.signInWithPassword({
               email: loginEmail.trim().toLowerCase(),
               password: loginPassword,
             });
@@ -148,6 +177,34 @@ const TeacherAuth = () => {
               setIsLoading(false);
               return;
             }
+
+            // Link user_id to teacher and add role
+            if (existingSignIn?.user) {
+              await supabase
+                .from('teachers')
+                .update({ user_id: existingSignIn.user.id })
+                .eq('id', teacherData.id);
+
+              const { data: existingRole } = await supabase
+                .from('user_roles')
+                .select('id')
+                .eq('user_id', existingSignIn.user.id)
+                .eq('role', 'teacher')
+                .maybeSingle();
+
+              if (!existingRole) {
+                await supabase
+                  .from('user_roles')
+                  .insert({ user_id: existingSignIn.user.id, role: 'teacher' });
+              }
+            }
+
+            toast({
+              title: 'تم تسجيل الدخول',
+              description: 'مرحباً بك',
+            });
+            navigate('/teacher/dashboard', { replace: true });
+            return;
           } else {
             toast({
               title: 'خطأ',
@@ -159,18 +216,16 @@ const TeacherAuth = () => {
           }
         }
 
-        // Link user_id to teacher
+        // Link user_id to teacher and add role
         if (signUpData?.user) {
           await supabase
             .from('teachers')
             .update({ user_id: signUpData.user.id })
             .eq('id', teacherData.id);
 
-          // Add teacher role
           await supabase
             .from('user_roles')
-            .insert({ user_id: signUpData.user.id, role: 'teacher' })
-            .select();
+            .insert({ user_id: signUpData.user.id, role: 'teacher' });
         }
 
         toast({
