@@ -129,6 +129,13 @@ const TeacherAuth = () => {
 
         // Ensure teacher role exists
         if (signInData.user) {
+          // First make sure teacher record is linked
+          await supabase
+            .from('teachers')
+            .update({ user_id: signInData.user.id })
+            .eq('id', teacherData.id);
+
+          // Then ensure role exists
           const { data: existingRole } = await supabase
             .from('user_roles')
             .select('id')
@@ -141,6 +148,9 @@ const TeacherAuth = () => {
               .from('user_roles')
               .insert({ user_id: signInData.user.id, role: 'teacher' });
           }
+          
+          // Small delay to ensure DB updates are committed
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
 
         toast({
@@ -148,8 +158,8 @@ const TeacherAuth = () => {
           description: 'مرحباً بك',
         });
         
-        // Navigate directly after successful login
-        navigate('/teacher/dashboard', { replace: true });
+        // Force navigation with window.location for clean state
+        window.location.href = '/teacher/dashboard';
       } else {
         // Teacher approved but no auth account - create one
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
@@ -203,7 +213,10 @@ const TeacherAuth = () => {
               title: 'تم تسجيل الدخول',
               description: 'مرحباً بك',
             });
-            navigate('/teacher/dashboard', { replace: true });
+            
+            // Small delay then force navigation
+            await new Promise(resolve => setTimeout(resolve, 300));
+            window.location.href = '/teacher/dashboard';
             return;
           } else {
             toast({
@@ -233,8 +246,9 @@ const TeacherAuth = () => {
           description: 'مرحباً بك، تم تفعيل حسابك',
         });
         
-        // Navigate directly after successful signup
-        navigate('/teacher/dashboard', { replace: true });
+        // Small delay then force navigation
+        await new Promise(resolve => setTimeout(resolve, 300));
+        window.location.href = '/teacher/dashboard';
       }
     } catch (error: any) {
       console.error('Login error:', error);
