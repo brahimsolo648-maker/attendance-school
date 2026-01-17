@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowRight, User, Mail, Lock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,17 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useRegisterTeacher } from '@/hooks/useTeachers';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 const TeacherAuth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isTeacher, loading: authLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -28,9 +32,165 @@ const TeacherAuth = () => {
 
   const registerTeacher = useRegisterTeacher();
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Redirect if already authenticated as teacher
+  useEffect(() => {
+    if (!authLoading && user && isTeacher) {
+      navigate('/teacher/dashboard', { replace: true });
+    }
+  }, [user, isTeacher, authLoading, navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/teacher/dashboard');
+    
+    if (!loginEmail.trim() || !loginPassword.trim()) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى إدخال البريد الإلكتروني وكلمة المرور',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      // Check if teacher exists and is approved
+      const { data: teacherData, error: teacherError } = await supabase
+        .from('teachers')
+        .select('id, status, user_id')
+        .eq('email', loginEmail.trim().toLowerCase())
+        .maybeSingle();
+
+      if (teacherError) {
+        throw teacherError;
+      }
+
+      if (!teacherData) {
+        toast({
+          title: 'خطأ',
+          description: 'لا يوجد حساب بهذا البريد الإلكتروني',
+          variant: 'destructive'
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (teacherData.status === 'pending') {
+        toast({
+          title: 'حساب قيد المراجعة',
+          description: 'حسابك لم تتم الموافقة عليه بعد، يرجى الانتظار',
+          variant: 'destructive'
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (teacherData.status === 'rejected') {
+        toast({
+          title: 'تم رفض الحساب',
+          description: 'تم رفض طلب التسجيل الخاص بك',
+          variant: 'destructive'
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // If teacher has user_id, sign in with password
+      if (teacherData.user_id) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: loginEmail.trim().toLowerCase(),
+          password: loginPassword,
+        });
+
+        if (signInError) {
+          toast({
+            title: 'خطأ في تسجيل الدخول',
+            description: signInError.message.includes('Invalid login credentials') 
+              ? 'كلمة المرور غير صحيحة' 
+              : signInError.message,
+            variant: 'destructive'
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        toast({
+          title: 'تم تسجيل الدخول',
+          description: 'مرحباً بك',
+        });
+        
+        // Navigate directly after successful login
+        navigate('/teacher/dashboard', { replace: true });
+      } else {
+        // Teacher approved but no auth account - create one
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: loginEmail.trim().toLowerCase(),
+          password: loginPassword,
+          options: {
+            emailRedirectTo: `${window.location.origin}/teacher/dashboard`,
+          }
+        });
+
+        if (signUpError) {
+          // User might already exist
+          if (signUpError.message.includes('User already registered')) {
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+              email: loginEmail.trim().toLowerCase(),
+              password: loginPassword,
+            });
+
+            if (signInError) {
+              toast({
+                title: 'خطأ',
+                description: 'كلمة المرور غير صحيحة',
+                variant: 'destructive'
+              });
+              setIsLoading(false);
+              return;
+            }
+          } else {
+            toast({
+              title: 'خطأ',
+              description: signUpError.message,
+              variant: 'destructive'
+            });
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // Link user_id to teacher
+        if (signUpData?.user) {
+          await supabase
+            .from('teachers')
+            .update({ user_id: signUpData.user.id })
+            .eq('id', teacherData.id);
+
+          // Add teacher role
+          await supabase
+            .from('user_roles')
+            .insert({ user_id: signUpData.user.id, role: 'teacher' })
+            .select();
+        }
+
+        toast({
+          title: 'تم إنشاء الحساب',
+          description: 'مرحباً بك، تم تفعيل حسابك',
+        });
+        
+        // Navigate directly after successful signup
+        navigate('/teacher/dashboard', { replace: true });
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast({
+        title: 'خطأ',
+        description: error?.message || 'حدث خطأ غير متوقع',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -191,8 +351,21 @@ const TeacherAuth = () => {
                   </label>
                 </div>
 
-                <Button type="submit" variant="gradient" size="lg" className="w-full">
-                  تسجيل الدخول
+                <Button 
+                  type="submit" 
+                  variant="gradient" 
+                  size="lg" 
+                  className="w-full"
+                  disabled={isLoading || authLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                      جاري تسجيل الدخول...
+                    </>
+                  ) : (
+                    'تسجيل الدخول'
+                  )}
                 </Button>
               </form>
             </TabsContent>

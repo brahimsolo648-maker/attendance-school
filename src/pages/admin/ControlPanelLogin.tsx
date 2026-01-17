@@ -50,18 +50,34 @@ const ControlPanelLogin = () => {
     setIsLoading(true);
     
     try {
-      // Verify the password against the control panel password stored in system_settings
-      // For now, we verify that the user is authenticated as admin
+      // Verify the user is admin
       if (!isAdmin) {
         toast({
           title: 'خطأ',
           description: 'ليس لديك صلاحية الوصول للوحة التحكم',
           variant: 'destructive'
         });
+        setIsLoading(false);
         return;
       }
 
-      // Navigate to dashboard - the actual password verification happens server-side via RLS
+      // Check password - use hardcoded password for control panel
+      const CONTROL_PANEL_PASSWORD = '28072008';
+      
+      if (password !== CONTROL_PANEL_PASSWORD) {
+        toast({
+          title: 'خطأ',
+          description: 'كلمة المرور غير صحيحة',
+          variant: 'destructive'
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Store control panel access in session
+      sessionStorage.setItem('controlPanelAccess', 'true');
+
+      // Navigate to dashboard
       navigate('/admin/control-panel/dashboard');
       toast({
         title: 'تم الدخول',
