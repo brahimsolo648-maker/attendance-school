@@ -1,6 +1,5 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
@@ -17,73 +16,94 @@ const ProtectedRoute = ({
   requiredRole = 'any',
   redirectTo = '/admin/login'
 }: ProtectedRouteProps) => {
-  const { user, loading: authLoading, isAdmin, isTeacher } = useAuth();
   const location = useLocation();
-  const [roleChecked, setRoleChecked] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasRequiredRole, setHasRequiredRole] = useState(false);
 
   useEffect(() => {
-    const checkRole = async () => {
-      if (!user) {
-        setRoleChecked(true);
-        return;
-      }
+    let isMounted = true;
 
-      // If useAuth already has the role info, use it
-      if (requiredRole === 'admin' && isAdmin) {
-        setHasRequiredRole(true);
-        setRoleChecked(true);
-        return;
-      }
-      if (requiredRole === 'teacher' && isTeacher) {
-        setHasRequiredRole(true);
-        setRoleChecked(true);
-        return;
-      }
-      if (requiredRole === 'any' && (isAdmin || isTeacher)) {
-        setHasRequiredRole(true);
-        setRoleChecked(true);
-        return;
-      }
-
-      // Double-check from database directly
+    const checkAuth = async () => {
       try {
-        if (requiredRole === 'admin') {
-          const { data } = await supabase
+        // Get session directly - most reliable
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.user) {
+          if (isMounted) {
+            setIsAuthenticated(false);
+            setHasRequiredRole(false);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        if (isMounted) {
+          setIsAuthenticated(true);
+        }
+
+        // Check role from user_roles table
+        if (requiredRole === 'any') {
+          // Just need any role
+          const { data: roleData } = await supabase
             .from('user_roles')
             .select('role')
-            .eq('user_id', user.id)
-            .eq('role', 'admin')
+            .eq('user_id', session.user.id)
             .maybeSingle();
-          setHasRequiredRole(!!data);
-        } else if (requiredRole === 'teacher') {
-          const { data } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', user.id)
-            .eq('role', 'teacher')
-            .maybeSingle();
-          setHasRequiredRole(!!data);
+          
+          if (isMounted) {
+            setHasRequiredRole(!!roleData);
+            setIsLoading(false);
+          }
         } else {
-          // 'any' role - check if user has any role
-          const { data } = await supabase
+          // Check for specific role
+          const { data: roleData } = await supabase
             .from('user_roles')
             .select('role')
-            .eq('user_id', user.id)
+            .eq('user_id', session.user.id)
+            .eq('role', requiredRole)
             .maybeSingle();
-          setHasRequiredRole(!!data);
+          
+          if (isMounted) {
+            setHasRequiredRole(!!roleData);
+            setIsLoading(false);
+          }
         }
       } catch (error) {
-        console.error('Error checking role:', error);
-        setHasRequiredRole(false);
+        console.error('Error checking auth:', error);
+        if (isMounted) {
+          setIsAuthenticated(false);
+          setHasRequiredRole(false);
+          setIsLoading(false);
+        }
       }
-      setRoleChecked(true);
     };
 
-    checkRole();
-  }, [user, isAdmin, isTeacher, requiredRole]);
+    checkAuth();
 
-  if (authLoading || !roleChecked) {
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          if (isMounted) {
+            setIsAuthenticated(false);
+            setHasRequiredRole(false);
+            setIsLoading(false);
+          }
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          // Re-check role on sign in
+          checkAuth();
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [requiredRole]);
+
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -95,13 +115,12 @@ const ProtectedRoute = ({
   }
 
   // Not authenticated
-  if (!user) {
+  if (!isAuthenticated) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // Check role requirements
-  if (requiredRole !== 'any' && !hasRequiredRole) {
-    // Redirect based on required role
+  // Authenticated but missing required role
+  if (!hasRequiredRole) {
     if (requiredRole === 'admin') {
       return <Navigate to="/admin/login" replace />;
     }
