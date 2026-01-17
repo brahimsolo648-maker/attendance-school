@@ -5,22 +5,28 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+
+interface TeacherData {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
 
 const TeacherSettings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
-  // Current data (read-only display)
-  const [currentData] = useState({
-    firstName: 'عمر',
-    lastName: 'خالد',
-    email: 'omar@email.com',
-  });
+  // Current teacher data
+  const [teacherData, setTeacherData] = useState<TeacherData | null>(null);
+  const [isLoadingTeacher, setIsLoadingTeacher] = useState(true);
 
   // Name change form
   const [newFirstName, setNewFirstName] = useState('');
@@ -45,6 +51,29 @@ const TeacherSettings = () => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSendingPasswordCode, setIsSendingPasswordCode] = useState(false);
 
+  // Fetch teacher data
+  useEffect(() => {
+    const fetchTeacherData = async () => {
+      if (!user) {
+        setIsLoadingTeacher(false);
+        return;
+      }
+
+      const { data: teacher, error } = await supabase
+        .from('teachers')
+        .select('id, first_name, last_name, email')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!error && teacher) {
+        setTeacherData(teacher);
+      }
+      setIsLoadingTeacher(false);
+    };
+
+    fetchTeacherData();
+  }, [user]);
+
   // Check if verification code is still valid (10 minutes)
   const isCodeValid = (expiry: Date | null) => {
     if (!expiry) return false;
@@ -61,18 +90,35 @@ const TeacherSettings = () => {
       return;
     }
 
+    if (!teacherData) return;
+
     setIsUpdatingName(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    const updates: Partial<TeacherData> = {};
+    if (newFirstName.trim()) updates.first_name = newFirstName.trim();
+    if (newLastName.trim()) updates.last_name = newLastName.trim();
+
+    const { error } = await supabase
+      .from('teachers')
+      .update(updates)
+      .eq('id', teacherData.id);
+
+    if (error) {
+      toast({
+        title: 'خطأ',
+        description: 'حدث خطأ أثناء تحديث البيانات',
+        variant: 'destructive'
+      });
+    } else {
       toast({
         title: 'تم التحديث',
         description: 'تم تحديث الاسم واللقب بنجاح',
       });
+      setTeacherData(prev => prev ? { ...prev, ...updates } : null);
       setNewFirstName('');
       setNewLastName('');
-      setIsUpdatingName(false);
-    }, 1000);
+    }
+    setIsUpdatingName(false);
   };
 
   const handleSendEmailVerificationCode = async () => {
@@ -97,7 +143,7 @@ const TeacherSettings = () => {
       
       toast({
         title: 'تم الإرسال',
-        description: `تم إرسال رمز التحقق إلى بريدك الحالي (${currentData.email}). الرمز صالح لمدة 10 دقائق.`,
+        description: `تم إرسال رمز التحقق إلى بريدك الحالي (${teacherData?.email}). الرمز صالح لمدة 10 دقائق.`,
       });
     }, 1500);
   };
@@ -177,7 +223,7 @@ const TeacherSettings = () => {
       
       toast({
         title: 'تم الإرسال',
-        description: `تم إرسال رمز التحقق إلى بريدك (${currentData.email}). الرمز صالح لمدة 10 دقائق.`,
+        description: `تم إرسال رمز التحقق إلى بريدك (${teacherData?.email}). الرمز صالح لمدة 10 دقائق.`,
       });
     }, 1500);
   };
@@ -219,6 +265,28 @@ const TeacherSettings = () => {
     }, 1000);
   };
 
+  if (isLoadingTeacher) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!teacherData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="glass-card p-8 text-center">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-destructive" />
+          <p className="text-lg font-bold">لم يتم العثور على بيانات الأستاذ</p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate('/')}>
+            العودة
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container min-h-screen">
       {/* Header */}
@@ -242,8 +310,8 @@ const TeacherSettings = () => {
             <div className="w-24 h-24 mx-auto rounded-full gradient-primary flex items-center justify-center shadow-glow mb-4">
               <User className="w-12 h-12 text-primary-foreground" />
             </div>
-            <h2 className="text-xl font-bold text-foreground">{currentData.lastName} {currentData.firstName}</h2>
-            <p className="text-muted-foreground">{currentData.email}</p>
+            <h2 className="text-xl font-bold text-foreground">{teacherData.last_name} {teacherData.first_name}</h2>
+            <p className="text-muted-foreground">{teacherData.email}</p>
           </div>
 
           {/* Name Change Section */}
@@ -257,10 +325,10 @@ const TeacherSettings = () => {
             <CardContent className="space-y-4">
               <div className="p-3 bg-secondary/50 rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">الاسم الحالي:</span> {currentData.firstName}
+                  <span className="font-medium text-foreground">الاسم الحالي:</span> {teacherData.first_name}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">اللقب الحالي:</span> {currentData.lastName}
+                  <span className="font-medium text-foreground">اللقب الحالي:</span> {teacherData.last_name}
                 </p>
               </div>
               
@@ -312,7 +380,7 @@ const TeacherSettings = () => {
             <CardContent className="space-y-4">
               <div className="p-3 bg-secondary/50 rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">البريد الحالي:</span> {currentData.email}
+                  <span className="font-medium text-foreground">البريد الحالي:</span> {teacherData.email}
                 </p>
               </div>
               
