@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, LogOut, Users, CheckCircle, X, Loader2 } from 'lucide-react';
+import { Settings, LogOut, Users, CheckCircle, X, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import ThemeToggle from '@/components/ThemeToggle';
 import SignaturePad from '@/components/SignaturePad';
@@ -12,7 +13,6 @@ import { useStudents } from '@/hooks/useStudents';
 import { useSections } from '@/hooks/useSections';
 import { useSubmitAbsenceList } from '@/hooks/useAbsence';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 
 interface TeacherData {
   id: string;
@@ -27,38 +27,49 @@ interface TeacherSection {
   section_id: string;
 }
 
+interface StudentNote {
+  studentId: string;
+  note: string;
+}
+
 const TeacherDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, signOut } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [absentStudentIds, setAbsentStudentIds] = useState<string[]>([]);
+  const [studentNotes, setStudentNotes] = useState<StudentNote[]>([]);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [savedSignature, setSavedSignature] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [teacherData, setTeacherData] = useState<TeacherData | null>(null);
   const [teacherSectionIds, setTeacherSectionIds] = useState<string[]>([]);
   const [isLoadingTeacher, setIsLoadingTeacher] = useState(true);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
   const { data: allSections } = useSections();
   const { data: students, isLoading: studentsLoading } = useStudents(selectedSectionId);
   const submitAbsenceList = useSubmitAbsenceList();
 
-  // Fetch teacher data
+  // Check auth and fetch teacher data
   useEffect(() => {
-    const fetchTeacherData = async () => {
-      if (!user) {
-        setIsLoadingTeacher(false);
-        return;
-      }
-
+    const fetchData = async () => {
       try {
+        // Get current session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.user) {
+          navigate('/teacher/auth', { replace: true });
+          return;
+        }
+
+        setAuthUserId(session.user.id);
+
         // Get teacher by user_id
         const { data: teacher, error: teacherError } = await supabase
           .from('teachers')
           .select('id, first_name, last_name, subject, signature_url, avatar_url')
-          .eq('user_id', user.id)
+          .eq('user_id', session.user.id)
           .maybeSingle();
 
         if (teacherError) {
@@ -83,14 +94,14 @@ const TeacherDashboard = () => {
           }
         }
       } catch (error) {
-        console.error('Error in fetchTeacherData:', error);
+        console.error('Error in fetchData:', error);
       } finally {
         setIsLoadingTeacher(false);
       }
     };
 
-    fetchTeacherData();
-  }, [user]);
+    fetchData();
+  }, [navigate]);
 
   // Filter sections that this teacher is assigned to
   const teacherSections = allSections?.filter(
@@ -98,8 +109,8 @@ const TeacherDashboard = () => {
   ) || [];
 
   const handleLogout = async () => {
-    await signOut();
-    navigate('/');
+    await supabase.auth.signOut();
+    window.location.href = '/';
   };
 
   const toggleAbsent = (studentId: string) => {
@@ -108,6 +119,20 @@ const TeacherDashboard = () => {
         ? prev.filter(id => id !== studentId)
         : [...prev, studentId]
     );
+  };
+
+  const updateStudentNote = (studentId: string, note: string) => {
+    setStudentNotes(prev => {
+      const existing = prev.find(n => n.studentId === studentId);
+      if (existing) {
+        return prev.map(n => n.studentId === studentId ? { ...n, note } : n);
+      }
+      return [...prev, { studentId, note }];
+    });
+  };
+
+  const getStudentNote = (studentId: string) => {
+    return studentNotes.find(n => n.studentId === studentId)?.note || '';
   };
 
   const handleSignatureSave = async (dataUrl: string) => {
@@ -132,7 +157,7 @@ const TeacherDashboard = () => {
         setSignatureDataUrl(dataUrl);
         setSavedSignature(dataUrl);
         toast({
-          title: 'تنبيه',
+          title: 'تم الحفظ',
           description: 'تم حفظ التوقيع محلياً',
         });
         return;
@@ -154,7 +179,7 @@ const TeacherDashboard = () => {
       
       toast({
         title: 'تم الحفظ',
-        description: 'تم حفظ التوقيع بنجاح وسيتم استخدامه تلقائياً',
+        description: 'تم حفظ التوقيع بنجاح وسيتم استخدامه تلقائياً في المرات القادمة',
       });
     } catch (error) {
       console.error('Error saving signature:', error);
@@ -162,7 +187,7 @@ const TeacherDashboard = () => {
       setSignatureDataUrl(dataUrl);
       setSavedSignature(dataUrl);
       toast({
-        title: 'تنبيه',
+        title: 'تم الحفظ',
         description: 'تم حفظ التوقيع محلياً',
       });
     }
@@ -207,6 +232,7 @@ const TeacherDashboard = () => {
       
       setSelectedSectionId(null);
       setAbsentStudentIds([]);
+      setStudentNotes([]);
     } catch (error: any) {
       console.error('Error submitting absence list:', error);
       
@@ -227,6 +253,18 @@ const TeacherDashboard = () => {
     }
   };
 
+  const openSectionDialog = (sectionId: string) => {
+    setSelectedSectionId(sectionId);
+    setAbsentStudentIds([]);
+    setStudentNotes([]);
+  };
+
+  const closeSectionDialog = () => {
+    setSelectedSectionId(null);
+    setAbsentStudentIds([]);
+    setStudentNotes([]);
+  };
+
   if (isLoadingTeacher) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -243,7 +281,7 @@ const TeacherDashboard = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="glass-card p-8 text-center max-w-md">
           <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-xl font-bold mb-2">لم يتم العثور على بيانات الأستاذ</h2>
+          <h2 className="text-xl font-bold mb-2 text-foreground">لم يتم العثور على بيانات الأستاذ</h2>
           <p className="text-muted-foreground mb-4">
             يبدو أن حسابك غير مرتبط بملف أستاذ. يرجى التواصل مع الإدارة.
           </p>
@@ -255,11 +293,14 @@ const TeacherDashboard = () => {
     );
   }
 
+  const selectedSection = teacherSections.find(s => s.id === selectedSectionId);
+
   return (
     <div className="page-container min-h-screen">
       {/* Header */}
       <header className="glass-nav">
         <div className="content-container flex items-center justify-between h-16">
+          {/* Left - Settings */}
           <Button
             variant="ghost"
             size="icon"
@@ -268,19 +309,23 @@ const TeacherDashboard = () => {
             <Settings className="w-5 h-5" />
           </Button>
 
-          <h1 className="text-lg font-bold text-foreground">لوحة التحكم</h1>
+          {/* Center - Title with teacher name */}
+          <h1 className="text-lg font-bold text-foreground">
+            لوحة تحكم الأستاذ - {teacherData.first_name} {teacherData.last_name}
+          </h1>
 
+          {/* Right - Avatar and Logout */}
           <div className="flex items-center gap-3">
+            <Avatar className="w-9 h-9 border-2 border-primary">
+              <AvatarImage src={teacherData.avatar_url || ''} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                {teacherData.first_name[0]}{teacherData.last_name[0]}
+              </AvatarFallback>
+            </Avatar>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="w-4 h-4 ml-2" />
               خروج
             </Button>
-            <Avatar className="w-9 h-9 border-2 border-primary">
-              <AvatarImage src={teacherData.avatar_url || ''} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                {teacherData.first_name[0]}
-              </AvatarFallback>
-            </Avatar>
           </div>
         </div>
       </header>
@@ -307,91 +352,133 @@ const TeacherDashboard = () => {
       {/* Main Content */}
       <main className="content-container py-8">
         <div className="space-y-6">
+          {/* Section Header */}
           <div className="flex items-center gap-3">
-            <Users className="w-6 h-6 text-primary" />
-            <h2 className="text-xl font-bold text-foreground">الأقسام التي أدرسها</h2>
+            <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
+              <Users className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">الأقسام التي أدرسها</h2>
+              <p className="text-sm text-muted-foreground">المادة: {teacherData.subject}</p>
+            </div>
           </div>
 
+          {/* Sections Grid */}
           {teacherSections.length === 0 ? (
-            <div className="glass-card p-8 text-center text-muted-foreground">
-              <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>لم يتم تعيين أقسام لك بعد</p>
-              <p className="text-sm mt-2">سيتم تعيين الأقسام من قبل الإدارة</p>
+            <div className="glass-card p-8 text-center">
+              <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">لم تحدد الإدارة أقسامك بعد</h3>
+              <p className="text-muted-foreground">
+                سيتم تعيين الأقسام من قبل الإدارة قريباً
+              </p>
             </div>
           ) : (
-            <div className="grid gap-4">
-              {teacherSections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => {
-                    setSelectedSectionId(section.id);
-                    setAbsentStudentIds([]);
-                  }}
-                  className="glass-card p-5 text-right hover:border-primary/50 transition-all group"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-medium text-foreground group-hover:text-primary transition-colors">
-                      {section.full_name}
-                    </span>
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Users className="w-5 h-5 text-primary" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              {teacherSections.map((section) => {
+                const sectionStudents = students?.filter(s => s.section_id === section.id) || [];
+                
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => openSectionDialog(section.id)}
+                    className="glass-card p-5 text-right hover:border-primary/50 transition-all group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                        <Users className="w-6 h-6 text-primary" />
+                      </div>
+                      <div className="flex-1 mr-4">
+                        <span className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors block">
+                          {section.full_name}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          السنة: {section.year}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
       </main>
 
-      {/* Student List Dialog */}
-      <Dialog open={!!selectedSectionId} onOpenChange={() => setSelectedSectionId(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col bg-card">
-          <DialogHeader>
+      {/* Absence List Dialog */}
+      <Dialog open={!!selectedSectionId} onOpenChange={closeSectionDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col bg-card">
+          <DialogHeader className="pb-4 border-b border-border">
             <DialogTitle className="text-right flex items-center justify-between">
-              <Button variant="ghost" size="icon" onClick={() => setSelectedSectionId(null)}>
+              <Button variant="ghost" size="icon" onClick={closeSectionDialog}>
                 <X className="w-5 h-5" />
               </Button>
-              <span>
-                قائمة تلاميذ {teacherSections.find(s => s.id === selectedSectionId)?.full_name}
-              </span>
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-primary" />
+                <span>قائمة غياب قسم {selectedSection?.full_name}</span>
+              </div>
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto mt-4 space-y-4">
+          <div className="flex-1 overflow-y-auto py-4 space-y-4">
             {/* Students List */}
             {studentsLoading ? (
               <div className="flex items-center justify-center p-8">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
               </div>
             ) : students && students.length > 0 ? (
-              <div className="space-y-2">
-                {students.map((student) => (
-                  <div
-                    key={student.id}
-                    className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
-                      absentStudentIds.includes(student.id)
-                        ? 'bg-destructive/10 border-destructive/30'
-                        : 'bg-secondary/30 border-border'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Checkbox
-                        checked={absentStudentIds.includes(student.id)}
-                        onCheckedChange={() => toggleAbsent(student.id)}
-                        className="data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
-                      />
-                      <span className="text-sm text-muted-foreground">غائب</span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    الغائبون: {absentStudentIds.length} من {students.length}
+                  </span>
+                  <span className="text-sm text-muted-foreground">اسم التلميذ</span>
+                </div>
+                
+                {students.map((student) => {
+                  const isAbsent = absentStudentIds.includes(student.id);
+                  
+                  return (
+                    <div
+                      key={student.id}
+                      className={`rounded-xl border transition-all ${
+                        isAbsent
+                          ? 'bg-destructive/10 border-destructive/30'
+                          : 'bg-secondary/30 border-border'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between p-4">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={isAbsent}
+                            onCheckedChange={() => toggleAbsent(student.id)}
+                            className="data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
+                          />
+                          <span className="text-sm text-muted-foreground">غائب</span>
+                        </div>
+                        <span className="font-medium text-foreground">
+                          {student.last_name} {student.first_name}
+                        </span>
+                      </div>
+                      
+                      {/* Note field - shown only when student is marked absent */}
+                      {isAbsent && (
+                        <div className="px-4 pb-4">
+                          <Textarea
+                            placeholder="ملاحظات (اختياري)"
+                            value={getStudentNote(student.id)}
+                            onChange={(e) => updateStudentNote(student.id, e.target.value)}
+                            className="text-sm h-16 resize-none"
+                          />
+                        </div>
+                      )}
                     </div>
-                    <span className="font-medium text-foreground">
-                      {student.last_name} {student.first_name}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              <div className="p-8 text-center text-muted-foreground">
-                لا يوجد تلاميذ في هذا القسم
+              <div className="p-8 text-center">
+                <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                <p className="text-muted-foreground">لا يوجد تلاميذ في هذا القسم</p>
               </div>
             )}
 
@@ -401,8 +488,8 @@ const TeacherDashboard = () => {
                 <SignaturePad 
                   onSave={handleSignatureSave}
                   savedSignature={savedSignature}
-                  width={380}
-                  height={150}
+                  width={400}
+                  height={200}
                 />
               </div>
             )}
@@ -410,7 +497,7 @@ const TeacherDashboard = () => {
 
           {/* Submit Button */}
           {students && students.length > 0 && (
-            <div className="pt-4 border-t border-border mt-4">
+            <div className="pt-4 border-t border-border">
               <Button
                 variant="gradient"
                 size="lg"

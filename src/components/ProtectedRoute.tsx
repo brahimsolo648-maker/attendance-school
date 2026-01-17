@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useCallback } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
@@ -21,12 +21,42 @@ const ProtectedRoute = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasRequiredRole, setHasRequiredRole] = useState(false);
 
+  const checkRole = useCallback(async (userId: string): Promise<boolean> => {
+    try {
+      if (requiredRole === 'any') {
+        // Just need any role
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .maybeSingle();
+        
+        return !!roleData;
+      } else {
+        // Check for specific role
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+          .eq('role', requiredRole)
+          .maybeSingle();
+        
+        return !!roleData;
+      }
+    } catch (error) {
+      console.error('Error checking role:', error);
+      return false;
+    }
+  }, [requiredRole]);
+
   useEffect(() => {
     let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
 
     const checkAuth = async () => {
       try {
-        // Get session directly - most reliable
+        // Get session directly
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.user) {
@@ -42,32 +72,20 @@ const ProtectedRoute = ({
           setIsAuthenticated(true);
         }
 
-        // Check role from user_roles table
-        if (requiredRole === 'any') {
-          // Just need any role
-          const { data: roleData } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
-          
-          if (isMounted) {
-            setHasRequiredRole(!!roleData);
-            setIsLoading(false);
-          }
-        } else {
-          // Check for specific role
-          const { data: roleData } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id)
-            .eq('role', requiredRole)
-            .maybeSingle();
-          
-          if (isMounted) {
-            setHasRequiredRole(!!roleData);
-            setIsLoading(false);
-          }
+        // Check role with retry logic
+        let roleResult = await checkRole(session.user.id);
+        
+        // If role not found and we're checking for teacher, retry a few times
+        // This handles the case where role was just inserted
+        while (!roleResult && requiredRole === 'teacher' && retryCount < maxRetries) {
+          retryCount++;
+          await new Promise(resolve => setTimeout(resolve, 500));
+          roleResult = await checkRole(session.user.id);
+        }
+
+        if (isMounted) {
+          setHasRequiredRole(roleResult);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Error checking auth:', error);
@@ -90,9 +108,17 @@ const ProtectedRoute = ({
             setHasRequiredRole(false);
             setIsLoading(false);
           }
-        } else if (event === 'SIGNED_IN' && session?.user) {
-          // Re-check role on sign in
-          checkAuth();
+        } else if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+          // Re-check auth on sign in or token refresh
+          if (isMounted) {
+            setIsLoading(true);
+          }
+          // Use setTimeout to avoid potential deadlock
+          setTimeout(() => {
+            if (isMounted) {
+              checkAuth();
+            }
+          }, 100);
         }
       }
     );
@@ -101,7 +127,7 @@ const ProtectedRoute = ({
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [requiredRole]);
+  }, [requiredRole, checkRole]);
 
   if (isLoading) {
     return (
