@@ -12,40 +12,93 @@ import { useStudents } from '@/hooks/useStudents';
 import { useSections } from '@/hooks/useSections';
 import { useSubmitAbsenceList } from '@/hooks/useAbsence';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
-// Mock teacher data (will be replaced with real auth later)
-const MOCK_TEACHER = {
-  id: '04c2b20a-d971-4411-922c-4f05660ee99b', // Using the demo teacher ID
-  firstName: 'عمر',
-  lastName: 'خالد',
-  subject: 'الرياضيات',
-  sectionIds: [
-    'cea6bd20-a8d3-43ef-ba99-5f41a2e50222', // ثالثة ثانوي - رياضيات
-    'dad799b8-5767-4791-aae5-626b45d03c10', // ثانية ثانوي - رياضيات
-  ],
-  signatureUrl: null as string | null,
-};
+interface TeacherData {
+  id: string;
+  first_name: string;
+  last_name: string;
+  subject: string;
+  signature_url: string | null;
+  avatar_url: string | null;
+}
+
+interface TeacherSection {
+  section_id: string;
+}
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, signOut } = useAuth();
   const [showSettings, setShowSettings] = useState(false);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [absentStudentIds, setAbsentStudentIds] = useState<string[]>([]);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [savedSignature, setSavedSignature] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [teacherData, setTeacherData] = useState<TeacherData | null>(null);
+  const [teacherSectionIds, setTeacherSectionIds] = useState<string[]>([]);
+  const [isLoadingTeacher, setIsLoadingTeacher] = useState(true);
 
   const { data: allSections } = useSections();
   const { data: students, isLoading: studentsLoading } = useStudents(selectedSectionId);
   const submitAbsenceList = useSubmitAbsenceList();
 
+  // Fetch teacher data
+  useEffect(() => {
+    const fetchTeacherData = async () => {
+      if (!user) {
+        setIsLoadingTeacher(false);
+        return;
+      }
+
+      try {
+        // Get teacher by user_id
+        const { data: teacher, error: teacherError } = await supabase
+          .from('teachers')
+          .select('id, first_name, last_name, subject, signature_url, avatar_url')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (teacherError) {
+          console.error('Error fetching teacher:', teacherError);
+          setIsLoadingTeacher(false);
+          return;
+        }
+
+        if (teacher) {
+          setTeacherData(teacher);
+          setSavedSignature(teacher.signature_url);
+          setSignatureDataUrl(teacher.signature_url);
+
+          // Get teacher sections
+          const { data: sections, error: sectionsError } = await supabase
+            .from('teacher_sections')
+            .select('section_id')
+            .eq('teacher_id', teacher.id);
+
+          if (!sectionsError && sections) {
+            setTeacherSectionIds(sections.map((s: TeacherSection) => s.section_id));
+          }
+        }
+      } catch (error) {
+        console.error('Error in fetchTeacherData:', error);
+      } finally {
+        setIsLoadingTeacher(false);
+      }
+    };
+
+    fetchTeacherData();
+  }, [user]);
+
   // Filter sections that this teacher is assigned to
   const teacherSections = allSections?.filter(
-    section => MOCK_TEACHER.sectionIds.includes(section.id)
+    section => teacherSectionIds.includes(section.id)
   ) || [];
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut();
     navigate('/');
   };
 
@@ -58,11 +111,13 @@ const TeacherDashboard = () => {
   };
 
   const handleSignatureSave = async (dataUrl: string) => {
+    if (!teacherData) return;
+    
     try {
       // Convert base64 to blob
       const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-      const fileName = `${MOCK_TEACHER.id}_${Date.now()}.png`;
+      const fileName = `${teacherData.id}_${Date.now()}.png`;
       
       const { error: uploadError } = await supabase.storage
         .from('signatures')
@@ -95,7 +150,7 @@ const TeacherDashboard = () => {
       await supabase
         .from('teachers')
         .update({ signature_url: publicUrl })
-        .eq('id', MOCK_TEACHER.id);
+        .eq('id', teacherData.id);
       
       toast({
         title: 'تم الحفظ',
@@ -114,7 +169,7 @@ const TeacherDashboard = () => {
   };
 
   const submitAbsenceListHandler = async () => {
-    if (!selectedSectionId) {
+    if (!selectedSectionId || !teacherData) {
       toast({
         title: 'خطأ',
         description: 'يرجى اختيار القسم أولاً',
@@ -136,9 +191,9 @@ const TeacherDashboard = () => {
     
     try {
       await submitAbsenceList.mutateAsync({
-        teacherId: MOCK_TEACHER.id,
+        teacherId: teacherData.id,
         sectionId: selectedSectionId,
-        subject: MOCK_TEACHER.subject,
+        subject: teacherData.subject,
         signatureUrl: signatureDataUrl,
         absentStudentIds,
       });
@@ -172,6 +227,34 @@ const TeacherDashboard = () => {
     }
   };
 
+  if (isLoadingTeacher) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+          <p className="text-muted-foreground">جاري تحميل البيانات...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!teacherData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="glass-card p-8 text-center max-w-md">
+          <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+          <h2 className="text-xl font-bold mb-2">لم يتم العثور على بيانات الأستاذ</h2>
+          <p className="text-muted-foreground mb-4">
+            يبدو أن حسابك غير مرتبط بملف أستاذ. يرجى التواصل مع الإدارة.
+          </p>
+          <Button variant="outline" onClick={() => navigate('/')}>
+            العودة للصفحة الرئيسية
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-container min-h-screen">
       {/* Header */}
@@ -193,9 +276,9 @@ const TeacherDashboard = () => {
               خروج
             </Button>
             <Avatar className="w-9 h-9 border-2 border-primary">
-              <AvatarImage src="" />
+              <AvatarImage src={teacherData.avatar_url || ''} />
               <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                {MOCK_TEACHER.firstName[0]}
+                {teacherData.first_name[0]}
               </AvatarFallback>
             </Avatar>
           </div>
@@ -233,6 +316,7 @@ const TeacherDashboard = () => {
             <div className="glass-card p-8 text-center text-muted-foreground">
               <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>لم يتم تعيين أقسام لك بعد</p>
+              <p className="text-sm mt-2">سيتم تعيين الأقسام من قبل الإدارة</p>
             </div>
           ) : (
             <div className="grid gap-4">
