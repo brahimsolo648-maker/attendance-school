@@ -58,12 +58,31 @@ const AdminLogin = () => {
       const { error: signInError } = await signIn(email, password);
       
       if (signInError) {
+        // Check for network/fetch errors first
+        if (signInError.message?.includes('fetch') || signInError.message?.includes('Failed to fetch') || signInError.name === 'TypeError') {
+          toast({
+            title: 'خطأ في الاتصال',
+            description: 'تعذر الاتصال بالخادم، يرجى التحقق من اتصال الإنترنت',
+            variant: 'destructive'
+          });
+          return;
+        }
+        
         // If invalid credentials and this is the admin email, try to create the account
         if (signInError.message.includes('Invalid login credentials') && email === ADMIN_EMAIL) {
           // Try to sign up the admin account
           const { error: signUpError } = await signUp(email, password);
           
           if (signUpError) {
+            // Check for network errors
+            if (signUpError.message?.includes('fetch') || signUpError.message?.includes('Failed to fetch')) {
+              toast({
+                title: 'خطأ في الاتصال',
+                description: 'تعذر الاتصال بالخادم، يرجى التحقق من اتصال الإنترنت',
+                variant: 'destructive'
+              });
+              return;
+            }
             // If user already exists, show credentials error
             if (signUpError.message.includes('User already registered')) {
               toast({
@@ -96,6 +115,10 @@ const AdminLogin = () => {
             title: 'تم إنشاء حساب المسؤول',
             description: 'مرحباً بك في لوحة الإدارة',
           });
+          
+          // Redirect after successful login
+          await new Promise(resolve => setTimeout(resolve, 500));
+          window.location.href = '/admin/main';
           return;
         }
         
@@ -122,12 +145,27 @@ const AdminLogin = () => {
         title: 'تم تسجيل الدخول',
         description: 'مرحباً بك في لوحة الإدارة',
       });
-    } catch (err) {
-      toast({
-        title: 'خطأ',
-        description: 'حدث خطأ غير متوقع',
-        variant: 'destructive'
-      });
+      
+      // Redirect after successful login
+      await new Promise(resolve => setTimeout(resolve, 500));
+      window.location.href = '/admin/main';
+      
+    } catch (err: any) {
+      console.error('Login error:', err);
+      // Handle network/fetch errors
+      if (err?.message?.includes('fetch') || err?.message?.includes('Failed to fetch') || err?.name === 'TypeError') {
+        toast({
+          title: 'خطأ في الاتصال',
+          description: 'تعذر الاتصال بالخادم، يرجى التحقق من اتصال الإنترنت',
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'خطأ',
+          description: 'حدث خطأ غير متوقع',
+          variant: 'destructive'
+        });
+      }
     } finally {
       setIsLoading(false);
     }
