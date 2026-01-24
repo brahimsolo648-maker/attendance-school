@@ -289,11 +289,31 @@ const TeacherAuth = () => {
       const email = registerEmail.trim().toLowerCase();
 
       // Check if email already exists
-      const { data: existingTeacher } = await supabase
+      const { data: existingTeacher, error: checkError } = await supabase
         .from('teachers')
         .select('id, status')
         .eq('email', email)
         .maybeSingle();
+
+      if (checkError) {
+        console.error('Database check error:', checkError);
+        // Check if it's a network/connection error
+        if (checkError.message?.includes('fetch') || checkError.message?.includes('network') || checkError.code === 'PGRST301') {
+          toast({
+            title: 'خطأ في الاتصال',
+            description: 'تعذر الاتصال بقاعدة البيانات، يرجى التحقق من اتصال الإنترنت والمحاولة مرة أخرى',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'خطأ',
+            description: 'حدث خطأ أثناء التحقق من البريد الإلكتروني',
+            variant: 'destructive',
+          });
+        }
+        setIsLoading(false);
+        return;
+      }
 
       if (existingTeacher) {
         if (existingTeacher.status === 'pending') {
@@ -331,14 +351,25 @@ const TeacherAuth = () => {
         });
 
       if (insertError) {
+        console.error('Insert error:', insertError);
         if (insertError.code === '23505') {
           toast({
             title: 'خطأ',
             description: 'هذا البريد الإلكتروني مسجل بالفعل',
             variant: 'destructive',
           });
+        } else if (insertError.message?.includes('fetch') || insertError.message?.includes('network')) {
+          toast({
+            title: 'خطأ في الاتصال',
+            description: 'تعذر الاتصال بقاعدة البيانات، يرجى المحاولة مرة أخرى',
+            variant: 'destructive',
+          });
         } else {
-          throw insertError;
+          toast({
+            title: 'خطأ في الحفظ',
+            description: insertError.message || 'تعذر حفظ بيانات الحساب',
+            variant: 'destructive',
+          });
         }
         setIsLoading(false);
         return;
@@ -355,11 +386,20 @@ const TeacherAuth = () => {
 
     } catch (error: any) {
       console.error('Registration error:', error);
-      toast({
-        title: 'خطأ',
-        description: error?.message || 'حدث خطأ أثناء إنشاء الحساب',
-        variant: 'destructive',
-      });
+      // Handle network/fetch errors
+      if (error?.message?.includes('fetch') || error?.message?.includes('Failed to fetch') || error?.name === 'TypeError') {
+        toast({
+          title: 'خطأ في الاتصال',
+          description: 'تعذر الاتصال بالخادم، يرجى التحقق من اتصال الإنترنت',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'خطأ',
+          description: error?.message || 'حدث خطأ غير متوقع أثناء إنشاء الحساب',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
