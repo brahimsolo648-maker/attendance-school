@@ -6,7 +6,6 @@ import { Printer, Download, User } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import JsBarcode from 'jsbarcode';
 import { format } from 'date-fns';
-import { ar } from 'date-fns/locale';
 
 type Student = {
   id: string;
@@ -14,6 +13,7 @@ type Student = {
   last_name: string;
   birth_date?: string;
   photo_url?: string;
+  student_code?: string;
   section?: {
     full_name: string;
     year?: string;
@@ -32,8 +32,12 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
   const frontCardRef = useRef<HTMLDivElement>(null);
   const backCardRef = useRef<HTMLDivElement>(null);
 
-  // Generate unique barcode number from student ID (EAN-13 compatible)
-  const generateBarcodeNumber = (studentId: string): string => {
+  // Generate unique barcode number from student ID or student_code
+  const generateBarcodeNumber = (studentId: string, studentCode?: string): string => {
+    if (studentCode) {
+      // Pad or truncate to 12 digits for EAN-13 compatibility
+      return studentCode.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
+    }
     const hash = studentId.replace(/-/g, '').slice(0, 12);
     let numericHash = '';
     for (let i = 0; i < 12; i++) {
@@ -47,15 +51,16 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
   useEffect(() => {
     if (barcodeRef.current && student && open) {
       try {
-        const barcodeNumber = generateBarcodeNumber(student.id);
+        const barcodeNumber = generateBarcodeNumber(student.id, student.student_code);
         JsBarcode(barcodeRef.current, barcodeNumber, {
           format: 'CODE128',
-          width: 2,
-          height: 40,
+          width: 1.5,
+          height: 35,
           displayValue: true,
           fontSize: 10,
           margin: 5,
-          background: '#ffffff'
+          background: '#ffffff',
+          lineColor: '#1a365d'
         });
       } catch (e) {
         console.error('Barcode generation error:', e);
@@ -70,10 +75,8 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    // Clone the node instead of using innerHTML to prevent XSS
     const clonedElement = element.cloneNode(true) as HTMLElement;
 
-    // Create the print document structure
     const printDoc = printWindow.document;
     printDoc.write(`
       <!DOCTYPE html>
@@ -105,11 +108,11 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
             .card {
               width: 9cm;
               height: 6cm;
-              padding: 0.3cm;
+              padding: 0.4cm;
               box-sizing: border-box;
-              border: 2px solid #1a365d;
-              border-radius: 10px;
-              background: linear-gradient(145deg, #ffffff 0%, #f0f4f8 100%);
+              border: 2px solid #4361ee;
+              border-radius: 12px;
+              background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
               position: relative;
               overflow: hidden;
             }
@@ -119,59 +122,64 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
               top: 0;
               left: 0;
               right: 0;
-              height: 6px;
-              background: linear-gradient(90deg, #4361ee, #1a365d);
+              height: 8px;
+              background: linear-gradient(90deg, #4361ee, #3730a3);
             }
             .header {
-              text-align: right;
-              margin-top: 0.15cm;
-              margin-bottom: 0.2cm;
+              text-align: center;
+              margin-top: 0.2cm;
+              margin-bottom: 0.25cm;
+              padding-bottom: 0.15cm;
+              border-bottom: 1px solid #e2e8f0;
             }
             .header-line1 {
-              font-size: 8px;
-              color: #1a365d;
-              font-weight: 500;
+              font-size: 9px;
+              color: #4361ee;
+              font-weight: 600;
             }
             .header-line2 {
-              font-size: 11px;
+              font-size: 13px;
               font-weight: bold;
-              color: #1a365d;
+              color: #1e3a5f;
+              margin: 2px 0;
             }
             .header-line3 {
-              font-size: 8px;
-              color: #4361ee;
+              font-size: 9px;
+              color: #64748b;
               font-weight: 500;
             }
             .content {
               display: flex;
-              gap: 0.3cm;
+              gap: 0.35cm;
               align-items: flex-start;
+              direction: rtl;
             }
             .info-side {
               flex: 1;
               display: flex;
               flex-direction: column;
-              gap: 0.12cm;
+              gap: 0.15cm;
             }
             .info-row {
-              font-size: 9px;
+              font-size: 10px;
               display: flex;
-              gap: 4px;
+              gap: 6px;
               align-items: baseline;
             }
             .label {
               font-weight: bold;
-              color: #1a365d;
-              min-width: 55px;
+              color: #4361ee;
+              min-width: 65px;
             }
             .value {
-              color: #1a1a1a;
+              color: #1e293b;
+              font-weight: 500;
             }
             .photo-side {
-              width: 2.2cm;
-              height: 2.8cm;
+              width: 2.4cm;
+              height: 3cm;
               border: 2px solid #4361ee;
-              border-radius: 6px;
+              border-radius: 8px;
               display: flex;
               align-items: center;
               justify-content: center;
@@ -185,54 +193,84 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
               object-fit: cover;
             }
             .photo-placeholder {
-              color: #718096;
-              font-size: 8px;
+              color: #94a3b8;
+              font-size: 9px;
               text-align: center;
             }
             .footer {
               position: absolute;
-              bottom: 0.2cm;
-              left: 0.3cm;
-              right: 0.3cm;
+              bottom: 0.25cm;
+              left: 0.4cm;
+              right: 0.4cm;
               display: flex;
               justify-content: space-between;
-              font-size: 7px;
-              color: #718096;
-              border-top: 1px dashed #cbd5e0;
-              padding-top: 0.1cm;
+              align-items: center;
+              font-size: 8px;
+              color: #64748b;
+              border-top: 1px dashed #cbd5e1;
+              padding-top: 0.15cm;
             }
-            .footer-box {
-              width: 1.5cm;
-              height: 0.6cm;
-              border: 1px solid #cbd5e0;
-              border-radius: 4px;
+            .signature-area {
+              display: flex;
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 2px;
             }
-            .back-card {
+            .signature-line {
+              width: 2cm;
+              border-bottom: 1px solid #94a3b8;
+            }
+            .stamp-area {
+              width: 1.2cm;
+              height: 1.2cm;
+              border: 1px dashed #94a3b8;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 6px;
+            }
+            .back-content {
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              justify-content: center;
+              gap: 1cm;
+              height: calc(100% - 1.2cm);
+              padding-top: 0.5cm;
+            }
+            .code-container {
               display: flex;
               flex-direction: column;
               align-items: center;
-              justify-content: center;
-              height: 100%;
-              padding-top: 0.2cm;
+              gap: 0.2cm;
             }
-            .qr-container {
+            .qr-wrapper {
               background: white;
               padding: 0.25cm;
-              border-radius: 6px;
+              border-radius: 8px;
               border: 2px solid #4361ee;
-              margin-bottom: 0.25cm;
             }
-            .barcode-container {
+            .barcode-wrapper {
               background: white;
-              padding: 0.15cm;
-              border-radius: 4px;
-              margin-bottom: 0.15cm;
+              padding: 0.2cm;
+              border-radius: 6px;
+              border: 1px solid #e2e8f0;
             }
-            .back-note {
-              font-size: 7px;
-              color: #718096;
+            .code-label {
+              font-size: 8px;
+              color: #64748b;
+              font-weight: 500;
+            }
+            .back-footer {
+              position: absolute;
+              bottom: 0.25cm;
+              left: 0.4cm;
+              right: 0.4cm;
               text-align: center;
-              line-height: 1.3;
+              font-size: 7px;
+              color: #94a3b8;
+              line-height: 1.4;
             }
           </style>
         </head>
@@ -243,10 +281,8 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
     `);
     printDoc.close();
     
-    // Append the cloned element to the card container safely
     const cardContainer = printDoc.getElementById('print-card');
     if (cardContainer) {
-      // Copy the children from the cloned element
       while (clonedElement.firstChild) {
         cardContainer.appendChild(clonedElement.firstChild);
       }
@@ -279,19 +315,18 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
 
   if (!student) return null;
 
-  // Format birth date
   const formattedBirthDate = student.birth_date 
     ? format(new Date(student.birth_date), 'yyyy/MM/dd')
     : '-';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" dir="rtl">
         <DialogHeader>
-          <DialogTitle>بطاقة التلميذ الذكية</DialogTitle>
+          <DialogTitle className="text-right">بطاقة التلميذ الذكية</DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="front">
+        <Tabs defaultValue="front" dir="rtl">
           <TabsList className="grid grid-cols-2 w-full">
             <TabsTrigger value="front">الوجه الأمامي</TabsTrigger>
             <TabsTrigger value="back">الوجه الخلفي</TabsTrigger>
@@ -301,40 +336,53 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
             {/* Front Card Preview - 6×9 cm ratio (RTL layout) */}
             <div 
               ref={frontCardRef}
-              className="w-full bg-gradient-to-br from-white to-slate-100 rounded-xl border-2 border-primary/30 shadow-lg overflow-hidden"
-              style={{ aspectRatio: '9/6' }}
+              className="w-full rounded-xl border-2 border-primary shadow-lg overflow-hidden"
+              style={{ 
+                aspectRatio: '9/6',
+                background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)'
+              }}
+              dir="rtl"
             >
               {/* Top border accent */}
-              <div className="h-1.5 bg-gradient-to-r from-primary to-primary/70" />
+              <div className="h-2" style={{ background: 'linear-gradient(90deg, #4361ee, #3730a3)' }} />
               
-              <div className="p-3 h-full flex flex-col" style={{ height: 'calc(100% - 6px)' }}>
-                {/* Header - Right aligned (RTL) */}
-                <div className="text-right mb-2">
-                  <p className="text-[8px] text-primary font-medium">وزارة التربية الوطنية</p>
-                  <p className="text-[11px] font-bold text-primary">بطاقة حضور التلميذ</p>
-                  <p className="text-[8px] text-primary/80 font-medium">ثانوية العربي عبد القادر</p>
+              <div className="p-3 h-full flex flex-col" style={{ height: 'calc(100% - 8px)' }}>
+                {/* Header - Centered */}
+                <div className="text-center mb-2 pb-2 border-b border-border/50">
+                  <p className="text-[9px] text-primary font-semibold">وزارة التربية الوطنية</p>
+                  <p className="text-[13px] font-bold" style={{ color: '#1e3a5f' }}>بطاقة حضور التلميذ</p>
+                  <p className="text-[9px] text-muted-foreground font-medium">ثانوية العربي عبد القادر</p>
                 </div>
 
-                {/* Content - Info on right, Photo on left */}
-                <div className="flex gap-3 flex-1">
+                {/* Content - Info on right, Photo on left (RTL) */}
+                <div className="flex gap-3 flex-1" style={{ direction: 'rtl' }}>
                   {/* Info - Right side (RTL) */}
-                  <div className="flex-1 flex flex-col justify-center gap-1.5">
-                    <div className="flex gap-1 text-[10px]">
-                      <span className="font-bold text-primary min-w-[50px]">الاسم الكامل:</span>
-                      <span className="text-foreground">{student.first_name} {student.last_name}</span>
+                  <div className="flex-1 flex flex-col justify-center gap-2">
+                    <div className="flex gap-2 text-[10px]">
+                      <span className="font-bold text-primary min-w-[60px]">الاسم الكامل:</span>
+                      <span className="text-foreground font-medium">{student.last_name} {student.first_name}</span>
                     </div>
-                    <div className="flex gap-1 text-[10px]">
-                      <span className="font-bold text-primary min-w-[50px]">تاريخ الميلاد:</span>
-                      <span className="text-foreground">{formattedBirthDate}</span>
+                    <div className="flex gap-2 text-[10px]">
+                      <span className="font-bold text-primary min-w-[60px]">تاريخ الميلاد:</span>
+                      <span className="text-foreground font-medium">{formattedBirthDate}</span>
                     </div>
-                    <div className="flex gap-1 text-[10px]">
-                      <span className="font-bold text-primary min-w-[50px]">القسم:</span>
-                      <span className="text-foreground">{student.section?.full_name || '-'}</span>
+                    <div className="flex gap-2 text-[10px]">
+                      <span className="font-bold text-primary min-w-[60px]">القسم:</span>
+                      <span className="text-foreground font-medium">{student.section?.full_name || '-'}</span>
                     </div>
+                    {student.student_code && (
+                      <div className="flex gap-2 text-[10px]">
+                        <span className="font-bold text-primary min-w-[60px]">رقم التعريف:</span>
+                        <span className="text-foreground font-mono font-medium">{student.student_code}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Photo Area - Left side (3×4 cm ratio) */}
-                  <div className="w-16 h-20 border-2 border-primary/40 rounded-lg flex items-center justify-center bg-white overflow-hidden flex-shrink-0">
+                  <div 
+                    className="border-2 border-primary rounded-lg flex items-center justify-center bg-white overflow-hidden flex-shrink-0"
+                    style={{ width: '60px', height: '75px' }}
+                  >
                     {student.photo_url ? (
                       <img src={student.photo_url} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -347,14 +395,16 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-between items-center pt-1.5 mt-auto border-t border-dashed border-muted-foreground/30">
-                  <div className="flex items-center gap-1">
+                <div className="flex justify-between items-center pt-2 mt-auto border-t border-dashed border-muted-foreground/30">
+                  <div className="flex flex-col gap-0.5">
                     <span className="text-[7px] text-muted-foreground">توقيع المدير:</span>
-                    <div className="w-16 h-3 border-b border-muted-foreground/50" />
+                    <div className="w-16 border-b border-muted-foreground/50" />
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-[7px] text-muted-foreground">ختم المؤسسة:</span>
-                    <div className="w-5 h-5 border border-dashed border-muted-foreground/50 rounded-sm" />
+                    <span className="text-[7px] text-muted-foreground">الختم:</span>
+                    <div className="w-7 h-7 border border-dashed border-muted-foreground/50 rounded-full flex items-center justify-center">
+                      <span className="text-[5px] text-muted-foreground">ختم</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -376,32 +426,52 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
             {/* Back Card Preview */}
             <div 
               ref={backCardRef}
-              className="w-full bg-gradient-to-br from-white to-slate-100 rounded-xl border-2 border-primary/30 shadow-lg overflow-hidden"
-              style={{ aspectRatio: '9/6' }}
+              className="w-full rounded-xl border-2 border-primary shadow-lg overflow-hidden"
+              style={{ 
+                aspectRatio: '9/6',
+                background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)'
+              }}
+              dir="rtl"
             >
               {/* Top border accent */}
-              <div className="h-1.5 bg-gradient-to-r from-primary to-primary/70" />
+              <div className="h-2" style={{ background: 'linear-gradient(90deg, #4361ee, #3730a3)' }} />
               
-              <div className="p-3 h-full flex flex-col items-center justify-center" style={{ height: 'calc(100% - 6px)' }}>
-                {/* QR Code */}
-                <div className="bg-white p-2 rounded-lg border-2 border-primary/30 mb-2">
-                  <QRCodeSVG 
-                    value={student.id} 
-                    size={70} 
-                    level="H"
-                    includeMargin={false}
-                  />
+              <div className="p-3 h-full flex flex-col" style={{ height: 'calc(100% - 8px)' }}>
+                {/* Header */}
+                <div className="text-center mb-2">
+                  <p className="text-[10px] font-semibold" style={{ color: '#1e3a5f' }}>رموز المسح الضوئي</p>
                 </div>
 
-                {/* Barcode */}
-                <div className="bg-white px-2 py-1 rounded-lg mb-2">
-                  <svg ref={barcodeRef} className="w-32" />
+                {/* Codes Container - Side by Side */}
+                <div className="flex-1 flex items-center justify-center gap-6">
+                  {/* QR Code - Left */}
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="bg-white p-2 rounded-lg border-2 border-primary">
+                      <QRCodeSVG 
+                        value={student.id} 
+                        size={65} 
+                        level="H"
+                        includeMargin={false}
+                        fgColor="#1e3a5f"
+                      />
+                    </div>
+                    <span className="text-[8px] text-muted-foreground">رمز QR</span>
+                  </div>
+
+                  {/* Barcode - Right */}
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="bg-white p-2 rounded-lg border border-border">
+                      <svg ref={barcodeRef} className="max-w-[100px]" />
+                    </div>
+                    <span className="text-[8px] text-muted-foreground">الباركود</span>
+                  </div>
                 </div>
 
-                {/* Notes */}
-                <div className="text-center space-y-0.5">
-                  <p className="text-[8px] text-muted-foreground">هذه البطاقة خاصة بتسجيل الحضور</p>
-                  <p className="text-[8px] text-muted-foreground">يرجى المحافظة عليها وعدم إتلافها</p>
+                {/* Footer Note */}
+                <div className="text-center pt-2 border-t border-dashed border-muted-foreground/30">
+                  <p className="text-[7px] text-muted-foreground leading-relaxed">
+                    هذه البطاقة خاصة بتسجيل الحضور • يرجى المحافظة عليها
+                  </p>
                 </div>
               </div>
             </div>
