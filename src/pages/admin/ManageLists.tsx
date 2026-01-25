@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Plus, Calendar, Trash2, Eye } from 'lucide-react';
+import { ArrowRight, Plus, Calendar, Trash2, Eye, Hash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useSectionsByYear, getYears } from '@/hooks/useSections';
 import { useStudents, useCreateStudent, useDeleteStudent } from '@/hooks/useStudents';
 import { format } from 'date-fns';
-import { ar } from 'date-fns/locale';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -30,6 +29,7 @@ const ManageLists = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState<Date | undefined>();
+  const [studentCode, setStudentCode] = useState('');
   
   const years = getYears();
   const { data: sectionsByYear } = useSectionsByYear(selectedYear);
@@ -41,12 +41,30 @@ const ManageLists = () => {
     setSelectedYear(year);
     setSelectedSectionId('');
   };
+
+  const resetForm = () => {
+    setFirstName('');
+    setLastName('');
+    setBirthDate(undefined);
+    setStudentCode('');
+  };
   
   const handleAddStudent = async () => {
-    if (!firstName.trim() || !lastName.trim() || !birthDate || !selectedSectionId) {
+    if (!firstName.trim() || !lastName.trim() || !birthDate || !selectedSectionId || !studentCode.trim()) {
       toast({
         title: 'خطأ',
-        description: 'يرجى ملء جميع الحقول المطلوبة (الاسم، اللقب، تاريخ الميلاد)',
+        description: 'يرجى ملء جميع الحقول المطلوبة (الاسم، اللقب، تاريخ الميلاد، رقم التعريف)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check if student code already exists
+    const existingStudent = students?.find(s => s.student_code === studentCode.trim());
+    if (existingStudent) {
+      toast({
+        title: 'خطأ',
+        description: 'رقم التعريف المدرسي مستخدم مسبقاً',
         variant: 'destructive',
       });
       return;
@@ -58,6 +76,7 @@ const ManageLists = () => {
         last_name: lastName.trim(),
         birth_date: format(birthDate, 'yyyy-MM-dd'),
         section_id: selectedSectionId,
+        student_code: studentCode.trim(),
       });
       
       toast({
@@ -66,9 +85,7 @@ const ManageLists = () => {
       });
       
       setShowAddDialog(false);
-      setFirstName('');
-      setLastName('');
-      setBirthDate(undefined);
+      resetForm();
     } catch (error: any) {
       console.error('Error adding student:', error);
       toast({
@@ -164,51 +181,59 @@ const ManageLists = () => {
             {studentsLoading ? (
               <div className="p-8 text-center text-muted-foreground">جاري التحميل...</div>
             ) : students && students.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right w-12">#</TableHead>
-                    <TableHead className="text-right">الاسم</TableHead>
-                    <TableHead className="text-right">اللقب</TableHead>
-                    <TableHead className="text-right">تاريخ الميلاد</TableHead>
-                    <TableHead className="text-right w-32">الإجراءات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {students.map((student, index) => (
-                    <TableRow key={student.id} className={student.is_banned ? 'bg-destructive/10' : ''}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
-                      <TableCell>{student.first_name}</TableCell>
-                      <TableCell>{student.last_name}</TableCell>
-                      <TableCell>
-                        {student.birth_date 
-                          ? format(new Date(student.birth_date), 'dd/MM/yyyy')
-                          : '-'
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => navigate(`/admin/student/${student.id}`)}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setStudentToDelete(student.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right w-12">#</TableHead>
+                      <TableHead className="text-right">رقم التعريف</TableHead>
+                      <TableHead className="text-right">الاسم</TableHead>
+                      <TableHead className="text-right">اللقب</TableHead>
+                      <TableHead className="text-right">تاريخ الميلاد</TableHead>
+                      <TableHead className="text-right w-32">الإجراءات</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {students.map((student, index) => (
+                      <TableRow key={student.id} className={student.is_banned ? 'bg-destructive/10' : ''}>
+                        <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableCell>
+                          <span className="font-mono text-sm bg-muted px-2 py-1 rounded">
+                            {student.student_code || '-'}
+                          </span>
+                        </TableCell>
+                        <TableCell>{student.first_name}</TableCell>
+                        <TableCell>{student.last_name}</TableCell>
+                        <TableCell>
+                          {student.birth_date 
+                            ? format(new Date(student.birth_date), 'dd/MM/yyyy')
+                            : '-'
+                          }
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => navigate(`/admin/student/${student.id}`)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setStudentToDelete(student.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             ) : (
               <div className="p-8 text-center text-muted-foreground">
                 لا يوجد تلاميذ في هذا القسم
@@ -231,13 +256,26 @@ const ManageLists = () => {
       </main>
       
       {/* Add Student Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) resetForm(); }}>
         <DialogContent className="max-w-md bg-card">
           <DialogHeader>
             <DialogTitle className="text-right">إضافة تلميذ جديد</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-foreground flex items-center gap-2">
+                <Hash className="w-4 h-4 text-primary" />
+                رقم التعريف المدرسي *
+              </Label>
+              <Input
+                value={studentCode}
+                onChange={(e) => setStudentCode(e.target.value)}
+                placeholder="أدخل رقم التعريف الفريد"
+                className="input-styled font-mono"
+              />
+            </div>
+
             <div className="space-y-2">
               <Label className="text-foreground">الاسم *</Label>
               <Input
@@ -290,13 +328,13 @@ const ManageLists = () => {
           </div>
           
           <DialogFooter className="flex gap-2 mt-4">
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+            <Button variant="outline" onClick={() => { setShowAddDialog(false); resetForm(); }}>
               إلغاء
             </Button>
             <Button 
               variant="gradient" 
               onClick={handleAddStudent}
-              disabled={createStudent.isPending || !firstName || !lastName || !birthDate}
+              disabled={createStudent.isPending || !firstName || !lastName || !birthDate || !studentCode}
             >
               {createStudent.isPending ? 'جاري الإضافة...' : 'إضافة تلميذ'}
             </Button>

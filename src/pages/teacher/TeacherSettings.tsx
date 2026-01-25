@@ -213,35 +213,49 @@ const TeacherSettings = () => {
 
     setIsSendingPasswordCode(true);
     
-    // Simulate sending verification code
-    setTimeout(() => {
+    try {
+      // Verify current password by attempting to sign in with it
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: teacherData?.email || '',
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        toast({
+          title: 'خطأ',
+          description: 'كلمة المرور الحالية غير صحيحة',
+          variant: 'destructive'
+        });
+        setIsSendingPasswordCode(false);
+        return;
+      }
+
+      // Current password is correct, proceed with sending verification code
       const expiry = new Date();
       expiry.setMinutes(expiry.getMinutes() + 10);
       setPasswordCodeExpiry(expiry);
       setPasswordCodeSent(true);
-      setIsSendingPasswordCode(false);
       
       toast({
-        title: 'تم الإرسال',
-        description: `تم إرسال رمز التحقق إلى بريدك (${teacherData?.email}). الرمز صالح لمدة 10 دقائق.`,
+        title: 'تم التحقق',
+        description: `كلمة المرور الحالية صحيحة. يمكنك الآن تغيير كلمة المرور.`,
       });
-    }, 1500);
+    } catch (error) {
+      toast({
+        title: 'خطأ',
+        description: 'حدث خطأ أثناء التحقق من كلمة المرور',
+        variant: 'destructive'
+      });
+    }
+    
+    setIsSendingPasswordCode(false);
   };
 
   const handleChangePassword = async () => {
-    if (!passwordVerificationCode.trim()) {
-      toast({
-        title: 'خطأ',
-        description: 'يرجى إدخال رمز التحقق',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     if (!isCodeValid(passwordCodeExpiry)) {
       toast({
-        title: 'انتهت صلاحية الرمز',
-        description: 'يرجى طلب رمز جديد',
+        title: 'انتهت صلاحية الجلسة',
+        description: 'يرجى إعادة التحقق من كلمة المرور الحالية',
         variant: 'destructive'
       });
       setPasswordCodeSent(false);
@@ -250,19 +264,38 @@ const TeacherSettings = () => {
 
     setIsChangingPassword(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      toast({
-        title: 'تم التغيير',
-        description: 'تم تغيير كلمة المرور بنجاح',
+    try {
+      // Update the password using Supabase Auth
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
       });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmNewPassword('');
-      setPasswordVerificationCode('');
-      setPasswordCodeSent(false);
-      setIsChangingPassword(false);
-    }, 1000);
+
+      if (error) {
+        toast({
+          title: 'خطأ',
+          description: error.message || 'حدث خطأ أثناء تغيير كلمة المرور',
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'تم التغيير',
+          description: 'تم تغيير كلمة المرور بنجاح',
+        });
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setPasswordVerificationCode('');
+        setPasswordCodeSent(false);
+      }
+    } catch (error) {
+      toast({
+        title: 'خطأ',
+        description: 'حدث خطأ غير متوقع',
+        variant: 'destructive'
+      });
+    }
+    
+    setIsChangingPassword(false);
   };
 
   if (isLoadingTeacher) {
@@ -542,26 +575,14 @@ const TeacherSettings = () => {
                   <div className="p-3 bg-success/10 border border-success/30 rounded-lg">
                     <p className="text-sm text-success flex items-center gap-2">
                       <CheckCircle className="w-4 h-4" />
-                      تم إرسال رمز التحقق إلى بريدك. صالح لمدة 10 دقائق.
+                      تم التحقق من كلمة المرور الحالية. يمكنك الآن تغيير كلمة المرور.
                     </p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">رمز التحقق</label>
-                    <Input
-                      type="text"
-                      placeholder="أدخل رمز التحقق"
-                      value={passwordVerificationCode}
-                      onChange={(e) => setPasswordVerificationCode(e.target.value)}
-                      className="input-styled text-center text-lg tracking-widest"
-                      maxLength={6}
-                    />
                   </div>
                   
                   <Button 
                     onClick={handleChangePassword} 
                     className="w-full"
-                    disabled={isChangingPassword || !passwordVerificationCode.trim()}
+                    disabled={isChangingPassword}
                   >
                     {isChangingPassword ? (
                       <><Loader2 className="w-4 h-4 ml-2 animate-spin" /> جاري التغيير...</>
