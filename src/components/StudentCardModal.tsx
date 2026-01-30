@@ -27,13 +27,28 @@ type StudentCardModalProps = {
   student: Student | null;
 };
 
+// Diagonal lines SVG pattern component
+const DiagonalLinesPattern = () => (
+  <svg 
+    className="absolute inset-0 w-full h-full pointer-events-none" 
+    style={{ opacity: 0.08 }}
+    preserveAspectRatio="none"
+  >
+    <defs>
+      <pattern id="diagonalLines" patternUnits="userSpaceOnUse" width="20" height="20" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="20" stroke="#4361ee" strokeWidth="3" />
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#diagonalLines)" />
+  </svg>
+);
+
 const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps) => {
   const frontBarcodeRef = useRef<SVGSVGElement>(null);
   const backBarcodeRef = useRef<SVGSVGElement>(null);
   const frontCardRef = useRef<HTMLDivElement>(null);
   const backCardRef = useRef<HTMLDivElement>(null);
 
-  // Generate unique barcode number from student ID or student_code
   const generateBarcodeNumber = useCallback((studentId: string, studentCode?: string, barcodeNum?: string): string => {
     if (barcodeNum) {
       return barcodeNum.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
@@ -58,11 +73,11 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
       const barcodeNumber = generateBarcodeNumber(studentData.id, studentData.student_code, studentData.barcode_number);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
-        width: 2,
-        height: 45,
+        width: 1.8,
+        height: 40,
         displayValue: true,
-        fontSize: 11,
-        margin: 5,
+        fontSize: 10,
+        margin: 3,
         background: '#ffffff',
         lineColor: '#1a1a2e'
       });
@@ -72,10 +87,10 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
         JsBarcode(ref, barcodeNumber, {
           format: 'CODE128',
           width: 1.5,
-          height: 45,
+          height: 40,
           displayValue: true,
-          fontSize: 10,
-          margin: 5,
+          fontSize: 9,
+          margin: 3,
           background: '#ffffff',
           lineColor: '#1a1a2e'
         });
@@ -100,8 +115,6 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
     try {
       const html2canvas = (await import('html2canvas')).default;
       
-      // Card dimensions: 9cm x 6cm = ~255.12pt x 170.08pt (at 72dpi)
-      // Using mm for jsPDF: 90mm x 60mm
       const cardWidthMM = 90;
       const cardHeightMM = 60;
       
@@ -111,7 +124,7 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
         format: [cardWidthMM, cardHeightMM]
       });
 
-      // Capture front card
+      // Front card
       const frontCanvas = await html2canvas(frontCardRef.current, {
         scale: 4,
         backgroundColor: '#ffffff',
@@ -119,13 +132,11 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
         logging: false
       });
       
-      const frontImgData = frontCanvas.toDataURL('image/png', 1.0);
-      pdf.addImage(frontImgData, 'PNG', 0, 0, cardWidthMM, cardHeightMM);
+      pdf.addImage(frontCanvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, cardWidthMM, cardHeightMM);
       
-      // Add new page for back
+      // Back card on new page
       pdf.addPage([cardWidthMM, cardHeightMM], 'landscape');
       
-      // Capture back card
       const backCanvas = await html2canvas(backCardRef.current, {
         scale: 4,
         backgroundColor: '#ffffff',
@@ -133,10 +144,8 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
         logging: false
       });
       
-      const backImgData = backCanvas.toDataURL('image/png', 1.0);
-      pdf.addImage(backImgData, 'PNG', 0, 0, cardWidthMM, cardHeightMM);
+      pdf.addImage(backCanvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, cardWidthMM, cardHeightMM);
       
-      // Save PDF
       pdf.save(`بطاقة-${student.last_name}-${student.first_name}.pdf`);
     } catch (error) {
       console.error('PDF export error:', error);
@@ -146,98 +155,89 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
 
   if (!student) return null;
 
-  // Shared card styles
-  const cardContainerStyle = {
+  const cardStyle = {
     width: '340px',
-    height: '227px', // 9:6 aspect ratio
+    height: '227px',
     background: '#ffffff',
-    borderRadius: '12px',
+    borderRadius: '10px',
     overflow: 'hidden',
     position: 'relative' as const,
-    boxShadow: '0 4px 20px rgba(67, 97, 238, 0.15)',
-    border: '1px solid hsl(var(--primary) / 0.2)'
+    boxShadow: '0 4px 15px rgba(67, 97, 238, 0.12)',
+    border: '1px solid rgba(67, 97, 238, 0.15)'
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[420px] p-6" dir="rtl">
-        <DialogHeader className="pb-4 border-b border-border">
+      <DialogContent className="max-w-[420px] p-5" dir="rtl">
+        <DialogHeader className="pb-3 border-b border-border">
           <DialogTitle className="text-right flex items-center gap-2 text-foreground">
             <CreditCard className="w-5 h-5 text-primary" />
             بطاقة التلميذ
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Front Card Preview */}
+        <div className="space-y-5 py-3">
+          {/* Front Card */}
           <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">الوجه الأمامي</p>
-            <div 
-              ref={frontCardRef}
-              style={cardContainerStyle}
-              dir="rtl"
-            >
-              {/* Decorative gradient accent */}
-              <div 
-                className="absolute top-0 left-0 right-0 h-1"
-                style={{ background: 'linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.6))' }}
-              />
+            <p className="text-xs font-medium text-muted-foreground">الوجه الأمامي</p>
+            <div ref={frontCardRef} style={cardStyle} dir="rtl">
+              {/* Diagonal lines background */}
+              <DiagonalLinesPattern />
               
-              {/* Header */}
+              {/* Top gradient bar */}
               <div 
-                className="text-center py-3 px-4"
+                className="relative z-10 text-center py-2.5 px-3"
                 style={{ 
-                  background: 'hsl(var(--primary))',
+                  background: 'linear-gradient(135deg, #4361ee 0%, #3a56d4 100%)',
                   color: 'white'
                 }}
               >
-                <p className="text-[8px] font-medium opacity-90">الجمهورية الجزائرية الديمقراطية الشعبية</p>
-                <p className="text-[7px] opacity-80">وزارة التربية الوطنية</p>
-                <p className="text-[13px] font-bold my-0.5 tracking-wide">بطاقة حضور التلميذ</p>
-                <p className="text-[9px] font-medium">ثانوية العربي عبد القادر</p>
+                <p className="text-[7px] font-medium opacity-85 tracking-wide">الجمهورية الجزائرية الديمقراطية الشعبية</p>
+                <p className="text-[6.5px] opacity-75">وزارة التربية الوطنية</p>
+                <p className="text-[12px] font-bold my-0.5 tracking-wider">بطاقة حضور التلميذ</p>
+                <p className="text-[8px] font-medium opacity-90">ثانوية العربي عبد القادر</p>
               </div>
 
-              {/* Content Area */}
-              <div className="flex p-3 gap-3" style={{ direction: 'rtl' }}>
+              {/* Content */}
+              <div className="relative z-10 flex p-3 gap-3" style={{ direction: 'rtl' }}>
                 {/* Student Info */}
-                <div className="flex-1 flex flex-col justify-center gap-2">
+                <div className="flex-1 flex flex-col justify-center gap-1.5 pr-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-primary min-w-[45px]">اللقب:</span>
-                    <span className="text-[11px] font-semibold text-foreground">{student.last_name}</span>
+                    <span className="text-[9px] font-bold min-w-[40px]" style={{ color: '#4361ee' }}>اللقب:</span>
+                    <span className="text-[10px] font-semibold text-gray-800">{student.last_name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-primary min-w-[45px]">الاسم:</span>
-                    <span className="text-[11px] font-semibold text-foreground">{student.first_name}</span>
+                    <span className="text-[9px] font-bold min-w-[40px]" style={{ color: '#4361ee' }}>الاسم:</span>
+                    <span className="text-[10px] font-semibold text-gray-800">{student.first_name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-primary min-w-[45px]">القسم:</span>
-                    <span className="text-[11px] font-semibold text-foreground">{student.section?.full_name || '-'}</span>
+                    <span className="text-[9px] font-bold min-w-[40px]" style={{ color: '#4361ee' }}>القسم:</span>
+                    <span className="text-[10px] font-semibold text-gray-800">{student.section?.full_name || '-'}</span>
                   </div>
                   
-                  {/* Small barcode on front */}
-                  <div className="mt-1 flex justify-start">
-                    <svg 
-                      ref={frontBarcodeRef} 
-                      style={{ maxWidth: '100px', height: '35px' }}
-                    />
+                  {/* Mini barcode */}
+                  <div className="mt-1">
+                    <svg ref={frontBarcodeRef} style={{ maxWidth: '90px', height: '32px' }} />
                   </div>
                 </div>
 
-                {/* Photo Area */}
+                {/* Photo */}
                 <div 
-                  className="flex-shrink-0 rounded-lg overflow-hidden flex items-center justify-center bg-secondary/30"
+                  className="flex-shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
                   style={{ 
-                    width: '75px', 
-                    height: '100px',
-                    border: '2px solid hsl(var(--primary) / 0.3)'
+                    width: '70px', 
+                    height: '95px',
+                    background: 'linear-gradient(145deg, #f8f9ff, #eef1ff)',
+                    border: '2px solid rgba(67, 97, 238, 0.25)',
+                    boxShadow: '0 2px 8px rgba(67, 97, 238, 0.1)'
                   }}
                 >
                   {student.photo_url ? (
                     <img src={student.photo_url} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="text-center">
-                      <User className="w-7 h-7 mx-auto text-muted-foreground" />
-                      <p className="text-[7px] mt-0.5 text-muted-foreground">صورة</p>
+                      <User className="w-6 h-6 mx-auto" style={{ color: '#4361ee', opacity: 0.5 }} />
+                      <p className="text-[6px] mt-0.5" style={{ color: '#4361ee', opacity: 0.6 }}>صورة</p>
                     </div>
                   )}
                 </div>
@@ -245,82 +245,81 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
 
               {/* Footer */}
               <div 
-                className="absolute bottom-0 left-0 right-0 flex justify-between items-end px-3 py-1.5"
+                className="absolute bottom-0 left-0 right-0 flex justify-between items-end px-3 py-1.5 z-10"
                 style={{ 
-                  background: 'hsl(var(--secondary) / 0.5)',
-                  borderTop: '1px solid hsl(var(--border))'
+                  background: 'rgba(248, 249, 255, 0.9)',
+                  borderTop: '1px solid rgba(67, 97, 238, 0.1)'
                 }}
               >
                 <div className="text-center">
-                  <p className="text-[7px] text-muted-foreground">توقيع المدير</p>
-                  <div className="w-12 h-3 border-b border-muted-foreground/50" />
+                  <p className="text-[6px]" style={{ color: '#666' }}>توقيع المدير</p>
+                  <div className="w-12 h-2.5 border-b" style={{ borderColor: 'rgba(67, 97, 238, 0.3)' }} />
                 </div>
                 <div className="flex flex-col items-center">
-                  <div className="w-7 h-7 rounded-full border border-dashed border-muted-foreground/50 flex items-center justify-center">
-                    <span className="text-[5px] text-muted-foreground">ختم</span>
+                  <div 
+                    className="w-6 h-6 rounded-full border border-dashed flex items-center justify-center"
+                    style={{ borderColor: 'rgba(67, 97, 238, 0.4)' }}
+                  >
+                    <span className="text-[5px]" style={{ color: '#4361ee' }}>ختم</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Back Card Preview */}
+          {/* Back Card */}
           <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">الوجه الخلفي</p>
-            <div 
-              ref={backCardRef}
-              style={cardContainerStyle}
-              dir="rtl"
-            >
-              {/* Header accent */}
+            <p className="text-xs font-medium text-muted-foreground">الوجه الخلفي</p>
+            <div ref={backCardRef} style={cardStyle} dir="rtl">
+              {/* Diagonal lines background */}
+              <DiagonalLinesPattern />
+              
+              {/* Header */}
               <div 
-                className="text-center py-2 px-4"
+                className="relative z-10 text-center py-2 px-3"
                 style={{ 
-                  background: 'hsl(var(--primary))',
+                  background: 'linear-gradient(135deg, #4361ee 0%, #3a56d4 100%)',
                   color: 'white'
                 }}
               >
-                <p className="text-[10px] font-medium">رموز التعريف الإلكتروني</p>
+                <p className="text-[9px] font-medium tracking-wide">رموز التعريف الإلكتروني</p>
               </div>
 
-              {/* Codes Container */}
-              <div className="flex items-center justify-center gap-6 h-[calc(100%-40px)] px-4">
+              {/* Codes side by side */}
+              <div className="relative z-10 flex items-center justify-center gap-8 h-[calc(100%-36px)] px-4">
                 {/* QR Code */}
-                <div className="flex flex-col items-center gap-1.5">
+                <div className="flex flex-col items-center gap-1">
                   <div 
                     className="bg-white p-2 rounded-lg"
                     style={{ 
-                      border: '2px solid hsl(var(--primary))',
-                      boxShadow: '0 2px 10px hsl(var(--primary) / 0.15)'
+                      border: '2px solid #4361ee',
+                      boxShadow: '0 2px 10px rgba(67, 97, 238, 0.15)'
                     }}
                   >
                     <QRCodeSVG 
                       value={student.barcode_number || student.student_code || student.id} 
-                      size={80} 
+                      size={75} 
                       level="H"
                       includeMargin={false}
                       fgColor="#1a1a2e"
                       bgColor="#ffffff"
                     />
                   </div>
-                  <span className="text-[9px] font-semibold text-primary">رمز QR</span>
+                  <span className="text-[8px] font-semibold" style={{ color: '#4361ee' }}>رمز QR</span>
                 </div>
 
-                {/* Barcode */}
-                <div className="flex flex-col items-center gap-1.5">
+                {/* Barcode EAN */}
+                <div className="flex flex-col items-center gap-1">
                   <div 
-                    className="bg-white px-2 py-1.5 rounded-lg"
+                    className="bg-white px-2 py-1 rounded-lg"
                     style={{ 
-                      border: '1px solid hsl(var(--border))',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)'
+                      border: '1px solid rgba(67, 97, 238, 0.2)',
+                      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)'
                     }}
                   >
-                    <svg 
-                      ref={backBarcodeRef} 
-                      style={{ maxWidth: '120px', height: 'auto' }} 
-                    />
+                    <svg ref={backBarcodeRef} style={{ maxWidth: '110px', height: 'auto' }} />
                   </div>
-                  <span className="text-[9px] font-semibold text-primary">الباركود</span>
+                  <span className="text-[8px] font-semibold" style={{ color: '#4361ee' }}>باركود EAN</span>
                 </div>
               </div>
             </div>
@@ -328,18 +327,13 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
         </div>
 
         {/* Export Button */}
-        <div className="pt-4 border-t border-border">
-          <Button 
-            onClick={exportToPDF} 
-            className="w-full"
-            variant="gradient"
-            size="lg"
-          >
+        <div className="pt-3 border-t border-border">
+          <Button onClick={exportToPDF} className="w-full" variant="default" size="lg">
             <FileDown className="w-5 h-5 ml-2" />
             تصدير البطاقة كـ PDF
           </Button>
-          <p className="text-[10px] text-muted-foreground text-center mt-2">
-            سيتم تصدير الوجهين في ملف PDF واحد بحجم 9×6 سم
+          <p className="text-[9px] text-muted-foreground text-center mt-2">
+            سيتم تصدير كل وجه في صفحة منفصلة بحجم 9×6 سم
           </p>
         </div>
       </DialogContent>
