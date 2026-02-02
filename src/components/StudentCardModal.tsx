@@ -74,11 +74,11 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
       const barcodeNumber = generateBarcodeNumber(studentData.id, studentData.student_code, studentData.barcode_number);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
-        width: 1.5,
-        height: 35,
+        width: 1.2,
+        height: 30,
         displayValue: true,
-        fontSize: 9,
-        margin: 3,
+        fontSize: 8,
+        margin: 2,
         background: '#ffffff',
         lineColor: '#1a1a2e'
       });
@@ -87,11 +87,11 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
         const barcodeNumber = generateBarcodeNumber(studentData.id, studentData.student_code, studentData.barcode_number);
         JsBarcode(ref, barcodeNumber, {
           format: 'CODE128',
-          width: 1.3,
-          height: 35,
+          width: 1,
+          height: 30,
           displayValue: true,
-          fontSize: 8,
-          margin: 3,
+          fontSize: 7,
+          margin: 2,
           background: '#ffffff',
           lineColor: '#1a1a2e'
         });
@@ -163,13 +163,11 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
 
   if (!student) return null;
 
-  // Responsive card dimensions
+  // Fixed card dimensions to prevent overflow
   const cardStyle = {
-    width: isMobile ? '100%' : '320px',
-    maxWidth: '320px',
-    aspectRatio: '3 / 2', // 9cm x 6cm = 3:2
-    background: '#ffffff',
-    borderRadius: '10px',
+    width: '300px',
+    height: '200px',
+    borderRadius: '8px',
     overflow: 'hidden',
     position: 'relative' as const,
     boxShadow: '0 4px 15px rgba(67, 97, 238, 0.12)',
@@ -190,59 +188,58 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
           {/* Front Card */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">الوجه الأمامي</p>
-            <div ref={frontCardRef} style={cardStyle} dir="rtl">
+            <div ref={frontCardRef} style={{...cardStyle, background: '#ffffff'}} dir="rtl">
               {/* 3 Wide diagonal stripes */}
               <WideStripesPattern />
               
               {/* Top gradient bar */}
               <div 
-                className="relative z-10 text-center py-2 px-3"
+                className="relative z-10 text-center py-1.5 px-2"
                 style={{ 
                   background: 'linear-gradient(135deg, #4361ee 0%, #3a56d4 100%)',
                   color: 'white'
                 }}
               >
-                <p className="text-[6px] font-medium opacity-85 tracking-wide">الجمهورية الجزائرية الديمقراطية الشعبية</p>
-                <p className="text-[5.5px] opacity-75">وزارة التربية الوطنية</p>
-                <p className="text-[11px] font-bold my-0.5 tracking-wider">بطاقة حضور التلميذ</p>
-                <p className="text-[7px] font-medium opacity-90">ثانوية العربي عبد القادر</p>
+                <p style={{ fontSize: '5px', fontWeight: 500, opacity: 0.85 }}>الجمهورية الجزائرية الديمقراطية الشعبية</p>
+                <p style={{ fontSize: '4.5px', opacity: 0.75 }}>وزارة التربية الوطنية</p>
+                <p style={{ fontSize: '9px', fontWeight: 700, margin: '1px 0' }}>بطاقة حضور التلميذ</p>
+                <p style={{ fontSize: '6px', fontWeight: 600, opacity: 0.9 }}>ثانوية العربي عبد القادر</p>
               </div>
 
-              {/* Content - No barcode on front */}
-              <div className="relative z-10 flex p-3 gap-3" style={{ direction: 'rtl' }}>
+              {/* Content */}
+              <div className="relative z-10 flex p-2 gap-2" style={{ direction: 'rtl' }}>
                 {/* Student Info */}
-                <div className="flex-1 flex flex-col justify-center gap-1.5 pr-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-bold min-w-[35px]" style={{ color: '#4361ee' }}>اللقب:</span>
-                    <span className="text-[9px] font-semibold text-gray-800">{student.last_name}</span>
+                <div className="flex-1 flex flex-col justify-center gap-1 pr-1">
+                  <div className="flex items-center gap-1">
+                    <span style={{ fontSize: '7px', fontWeight: 700, minWidth: '28px', color: '#4361ee' }}>اللقب:</span>
+                    <span style={{ fontSize: '8px', fontWeight: 600, color: '#1a1a2e' }}>{student.last_name}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-bold min-w-[35px]" style={{ color: '#4361ee' }}>الاسم:</span>
-                    <span className="text-[9px] font-semibold text-gray-800">{student.first_name}</span>
+                  <div className="flex items-center gap-1">
+                    <span style={{ fontSize: '7px', fontWeight: 700, minWidth: '28px', color: '#4361ee' }}>الاسم:</span>
+                    <span style={{ fontSize: '8px', fontWeight: 600, color: '#1a1a2e' }}>{student.first_name}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-bold min-w-[35px]" style={{ color: '#4361ee' }}>القسم:</span>
-                    <span className="text-[9px] font-semibold text-gray-800">{student.section?.full_name || '-'}</span>
+                  <div className="flex items-center gap-1">
+                    <span style={{ fontSize: '7px', fontWeight: 700, minWidth: '28px', color: '#4361ee' }}>القسم:</span>
+                    <span style={{ fontSize: '8px', fontWeight: 600, color: '#1a1a2e' }}>{student.section?.full_name || '-'}</span>
                   </div>
                 </div>
 
                 {/* Photo */}
                 <div 
-                  className="flex-shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
+                  className="flex-shrink-0 rounded-md overflow-hidden flex items-center justify-center"
                   style={{ 
-                    width: '60px', 
-                    height: '80px',
+                    width: '45px', 
+                    height: '60px',
                     background: 'linear-gradient(145deg, #f8f9ff, #eef1ff)',
-                    border: '2px solid rgba(67, 97, 238, 0.25)',
-                    boxShadow: '0 2px 8px rgba(67, 97, 238, 0.1)'
+                    border: '1.5px solid rgba(67, 97, 238, 0.25)'
                   }}
                 >
                   {student.photo_url ? (
                     <img src={student.photo_url} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="text-center">
-                      <User className="w-5 h-5 mx-auto" style={{ color: '#4361ee', opacity: 0.5 }} />
-                      <p className="text-[5px] mt-0.5" style={{ color: '#4361ee', opacity: 0.6 }}>صورة</p>
+                      <User style={{ width: '14px', height: '14px', color: '#4361ee', opacity: 0.5, margin: '0 auto' }} />
+                      <p style={{ fontSize: '4px', marginTop: '1px', color: '#4361ee', opacity: 0.6 }}>صورة</p>
                     </div>
                   )}
                 </div>
@@ -250,23 +247,25 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
 
               {/* Footer */}
               <div 
-                className="absolute bottom-0 left-0 right-0 flex justify-between items-end px-3 py-1.5 z-10"
-                style={{ 
-                  background: 'rgba(248, 249, 255, 0.95)',
-                  borderTop: '1px solid rgba(67, 97, 238, 0.1)'
-                }}
+                className="absolute bottom-0 left-0 right-0 flex justify-between items-end px-2 py-1 z-10"
+                style={{ background: 'rgba(248, 249, 255, 0.95)', borderTop: '1px solid rgba(67, 97, 238, 0.1)' }}
               >
                 <div className="text-center">
-                  <p className="text-[5px]" style={{ color: '#666' }}>توقيع المدير</p>
-                  <div className="w-10 h-2 border-b" style={{ borderColor: 'rgba(67, 97, 238, 0.3)' }} />
+                  <p style={{ fontSize: '4px', color: '#666' }}>توقيع المدير</p>
+                  <div style={{ width: '30px', height: '1px', marginTop: '1px', borderBottom: '1px solid rgba(67, 97, 238, 0.3)' }} />
                 </div>
-                <div className="flex flex-col items-center">
-                  <div 
-                    className="w-5 h-5 rounded-full border border-dashed flex items-center justify-center"
-                    style={{ borderColor: 'rgba(67, 97, 238, 0.4)' }}
-                  >
-                    <span className="text-[4px]" style={{ color: '#4361ee' }}>ختم</span>
-                  </div>
+                <div 
+                  style={{
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '50%',
+                    border: '1px dashed rgba(67, 97, 238, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <span style={{ fontSize: '4px', color: '#4361ee' }}>ختم</span>
                 </div>
               </div>
             </div>
@@ -275,56 +274,59 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
           {/* Back Card */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">الوجه الخلفي</p>
-            <div ref={backCardRef} style={cardStyle} dir="rtl">
+            <div ref={backCardRef} style={{...cardStyle, background: '#ffffff'}} dir="rtl">
               {/* 3 Wide diagonal stripes */}
               <WideStripesPattern />
               
               {/* Header */}
               <div 
-                className="relative z-10 text-center py-1.5 px-3"
+                className="relative z-10 text-center py-1.5 px-2"
                 style={{ 
                   background: 'linear-gradient(135deg, #4361ee 0%, #3a56d4 100%)',
                   color: 'white'
                 }}
               >
-                <p className="text-[8px] font-medium tracking-wide">رموز التعريف الإلكتروني</p>
+                <p style={{ fontSize: '8px', fontWeight: 600 }}>رموز التعريف الإلكتروني</p>
               </div>
 
               {/* QR and Barcode side by side */}
-              <div className="relative z-10 flex items-center justify-center gap-5 h-[calc(100%-28px)] px-3">
+              <div className="relative z-10 flex items-center justify-center gap-4 px-3" style={{ height: 'calc(100% - 35px)' }}>
                 {/* QR Code */}
                 <div className="flex flex-col items-center gap-1">
                   <div 
-                    className="bg-white p-1.5 rounded-lg"
                     style={{ 
-                      border: '2px solid #4361ee',
-                      boxShadow: '0 2px 10px rgba(67, 97, 238, 0.15)'
+                      background: '#ffffff',
+                      padding: '4px',
+                      borderRadius: '6px',
+                      border: '1.5px solid #4361ee',
+                      boxShadow: '0 2px 8px rgba(67, 97, 238, 0.12)'
                     }}
                   >
                     <QRCodeSVG 
                       value={student.barcode_number || student.student_code || student.id} 
-                      size={65} 
+                      size={55} 
                       level="H"
                       includeMargin={false}
                       fgColor="#1a1a2e"
                       bgColor="#ffffff"
                     />
                   </div>
-                  <span className="text-[7px] font-semibold" style={{ color: '#4361ee' }}>رمز QR</span>
+                  <span style={{ fontSize: '6px', fontWeight: 600, color: '#4361ee' }}>رمز QR</span>
                 </div>
 
                 {/* Barcode EAN */}
                 <div className="flex flex-col items-center gap-1">
                   <div 
-                    className="bg-white px-2 py-1 rounded-lg"
                     style={{ 
-                      border: '1px solid rgba(67, 97, 238, 0.2)',
-                      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)'
+                      background: '#ffffff',
+                      padding: '3px 6px',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(67, 97, 238, 0.2)'
                     }}
                   >
-                    <svg ref={backBarcodeRef} style={{ maxWidth: '95px', height: 'auto' }} />
+                    <svg ref={backBarcodeRef} style={{ maxWidth: '80px', height: 'auto' }} />
                   </div>
-                  <span className="text-[7px] font-semibold" style={{ color: '#4361ee' }}>باركود EAN</span>
+                  <span style={{ fontSize: '6px', fontWeight: 600, color: '#4361ee' }}>باركود EAN</span>
                 </div>
               </div>
             </div>
