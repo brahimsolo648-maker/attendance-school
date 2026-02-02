@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Plus, Calendar, Trash2, Eye, Hash } from 'lucide-react';
+import { ArrowRight, Plus, Calendar, Trash2, Eye, Hash, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -173,9 +173,20 @@ const ManageLists = () => {
           <div className="card-elevated overflow-hidden">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h2 className="font-semibold text-foreground">قائمة التلاميذ</h2>
-              <span className="text-sm text-muted-foreground">
-                {students?.length || 0} تلميذ
-              </span>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/admin/section/${selectedSectionId}/cards`)}
+                  className="gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  طباعة بطاقات القسم
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {students?.length || 0} تلميذ
+                </span>
+              </div>
             </div>
             
             {studentsLoading ? (

@@ -24,6 +24,7 @@ import ControlPanelSettings from "./pages/admin/ControlPanelSettings";
 import ManageLists from "./pages/admin/ManageLists";
 import StudentDetails from "./pages/admin/StudentDetails";
 import StudentCardPage from "./pages/admin/StudentCardPage";
+import SectionCardsPage from "./pages/admin/SectionCardsPage";
 import AccountRequests from "./pages/admin/AccountRequests";
 import Reports from "./pages/admin/Reports";
 import QRScanner from "./pages/admin/QRScanner";
@@ -99,6 +100,11 @@ const App = () => (
             <Route path="/admin/student/:id/card" element={
               <ProtectedRoute requiredRole="admin">
                 <StudentCardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/section/:sectionId/cards" element={
+              <ProtectedRoute requiredRole="admin">
+                <SectionCardsPage />
               </ProtectedRoute>
             } />
             <Route path="/admin/account-requests" element={
