@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Save, User, Mail, Lock, Eye, EyeOff, Send, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowRight, Save, User, Mail, Lock, Eye, EyeOff, Send, CheckCircle, AlertCircle, Loader2, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -13,20 +14,22 @@ interface TeacherData {
   first_name: string;
   last_name: string;
   email: string;
+  avatar_url: string | null;
 }
 
 const TeacherSettings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
-  // Current teacher data
   const [teacherData, setTeacherData] = useState<TeacherData | null>(null);
   const [isLoadingTeacher, setIsLoadingTeacher] = useState(true);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   // Name change form
   const [newFirstName, setNewFirstName] = useState('');
@@ -51,7 +54,6 @@ const TeacherSettings = () => {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isSendingPasswordCode, setIsSendingPasswordCode] = useState(false);
 
-  // Fetch teacher data
   useEffect(() => {
     const fetchTeacherData = async () => {
       if (!user) {
@@ -61,7 +63,7 @@ const TeacherSettings = () => {
 
       const { data: teacher, error } = await supabase
         .from('teachers')
-        .select('id, first_name, last_name, email')
+        .select('id, first_name, last_name, email, avatar_url')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -74,10 +76,85 @@ const TeacherSettings = () => {
     fetchTeacherData();
   }, [user]);
 
-  // Check if verification code is still valid (10 minutes)
   const isCodeValid = (expiry: Date | null) => {
     if (!expiry) return false;
     return new Date() < expiry;
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !teacherData) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى اختيار ملف صورة صالح',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'خطأ',
+        description: 'حجم الصورة يجب أن لا يتجاوز 5 ميجابايت',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${teacherData.id}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      const publicUrl = urlData.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from('teachers')
+        .update({ avatar_url: publicUrl })
+        .eq('id', teacherData.id);
+
+      if (updateError) throw updateError;
+
+      setTeacherData(prev => prev ? { ...prev, avatar_url: publicUrl } : null);
+
+      toast({
+        title: 'تم التحديث',
+        description: 'تم تحديث صورة الملف الشخصي بنجاح',
+      });
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        title: 'خطأ',
+        description: 'حدث خطأ أثناء رفع الصورة',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleUpdateName = async () => {
@@ -94,7 +171,7 @@ const TeacherSettings = () => {
 
     setIsUpdatingName(true);
     
-    const updates: Partial<TeacherData> = {};
+    const updates: Partial<{ first_name: string; last_name: string }> = {};
     if (newFirstName.trim()) updates.first_name = newFirstName.trim();
     if (newLastName.trim()) updates.last_name = newLastName.trim();
 
@@ -133,7 +210,6 @@ const TeacherSettings = () => {
 
     setIsSendingEmailCode(true);
     
-    // Simulate sending verification code
     setTimeout(() => {
       const expiry = new Date();
       expiry.setMinutes(expiry.getMinutes() + 10);
@@ -170,7 +246,6 @@ const TeacherSettings = () => {
 
     setIsChangingEmail(true);
     
-    // Simulate API call
     setTimeout(() => {
       toast({
         title: 'تم التغيير',
@@ -214,7 +289,6 @@ const TeacherSettings = () => {
     setIsSendingPasswordCode(true);
     
     try {
-      // Verify current password by attempting to sign in with it
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: teacherData?.email || '',
         password: currentPassword,
@@ -230,7 +304,6 @@ const TeacherSettings = () => {
         return;
       }
 
-      // Current password is correct, proceed with sending verification code
       const expiry = new Date();
       expiry.setMinutes(expiry.getMinutes() + 10);
       setPasswordCodeExpiry(expiry);
@@ -238,7 +311,7 @@ const TeacherSettings = () => {
       
       toast({
         title: 'تم التحقق',
-        description: `كلمة المرور الحالية صحيحة. يمكنك الآن تغيير كلمة المرور.`,
+        description: 'كلمة المرور الحالية صحيحة. يمكنك الآن تغيير كلمة المرور.',
       });
     } catch (error) {
       toast({
@@ -265,7 +338,6 @@ const TeacherSettings = () => {
     setIsChangingPassword(true);
     
     try {
-      // Update the password using Supabase Auth
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
@@ -338,13 +410,37 @@ const TeacherSettings = () => {
       <main className="content-container py-8">
         <div className="max-w-2xl mx-auto space-y-6">
           
-          {/* Profile Avatar */}
+          {/* Profile Avatar with Upload */}
           <div className="glass-card p-6 animate-slide-up text-center">
-            <div className="w-24 h-24 mx-auto rounded-full gradient-primary flex items-center justify-center shadow-glow mb-4">
-              <User className="w-12 h-12 text-primary-foreground" />
+            <div className="relative inline-block">
+              <Avatar className="w-24 h-24 mx-auto border-4 border-primary/20">
+                <AvatarImage src={teacherData.avatar_url || ''} />
+                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                  {teacherData.first_name[0]}{teacherData.last_name[0]}
+                </AvatarFallback>
+              </Avatar>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {isUploadingAvatar ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
             </div>
-            <h2 className="text-xl font-bold text-foreground">{teacherData.last_name} {teacherData.first_name}</h2>
+            <h2 className="text-xl font-bold text-foreground mt-4">{teacherData.last_name} {teacherData.first_name}</h2>
             <p className="text-muted-foreground">{teacherData.email}</p>
+            <p className="text-xs text-muted-foreground mt-1">اضغط على أيقونة الكاميرا لتغيير الصورة</p>
           </div>
 
           {/* Name Change Section */}

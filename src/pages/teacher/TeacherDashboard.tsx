@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, LogOut, Users, CheckCircle, X, Loader2, FileText } from 'lucide-react';
+import { Settings, LogOut, Users, CheckCircle, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -55,7 +55,6 @@ const TeacherDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get current session
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.user) {
@@ -65,7 +64,6 @@ const TeacherDashboard = () => {
 
         setAuthUserId(session.user.id);
 
-        // Get teacher by user_id
         const { data: teacher, error: teacherError } = await supabase
           .from('teachers')
           .select('id, first_name, last_name, subject, signature_url, avatar_url')
@@ -81,9 +79,7 @@ const TeacherDashboard = () => {
         if (teacher) {
           setTeacherData(teacher);
           setSavedSignature(teacher.signature_url);
-          setSignatureDataUrl(teacher.signature_url);
 
-          // Get teacher sections
           const { data: sections, error: sectionsError } = await supabase
             .from('teacher_sections')
             .select('section_id')
@@ -103,7 +99,6 @@ const TeacherDashboard = () => {
     fetchData();
   }, [navigate]);
 
-  // Filter sections that this teacher is assigned to
   const teacherSections = allSections?.filter(
     section => teacherSectionIds.includes(section.id)
   ) || [];
@@ -139,7 +134,6 @@ const TeacherDashboard = () => {
     if (!teacherData) return;
     
     try {
-      // Convert base64 to blob
       const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
       const fileName = `${teacherData.id}_${Date.now()}.png`;
@@ -153,12 +147,10 @@ const TeacherDashboard = () => {
       
       if (uploadError) {
         console.error('Error uploading signature:', uploadError);
-        // Use local data URL as fallback
-        setSignatureDataUrl(dataUrl);
-        setSavedSignature(dataUrl);
         toast({
-          title: 'تم الحفظ',
-          description: 'تم حفظ التوقيع محلياً',
+          title: 'خطأ',
+          description: 'حدث خطأ أثناء رفع التوقيع، يرجى المحاولة مرة أخرى',
+          variant: 'destructive',
         });
         return;
       }
@@ -171,7 +163,6 @@ const TeacherDashboard = () => {
       setSignatureDataUrl(publicUrl);
       setSavedSignature(publicUrl);
       
-      // Update teacher's signature in database
       await supabase
         .from('teachers')
         .update({ signature_url: publicUrl })
@@ -183,12 +174,10 @@ const TeacherDashboard = () => {
       });
     } catch (error) {
       console.error('Error saving signature:', error);
-      // Use local data URL as fallback
-      setSignatureDataUrl(dataUrl);
-      setSavedSignature(dataUrl);
       toast({
-        title: 'تم الحفظ',
-        description: 'تم حفظ التوقيع محلياً',
+        title: 'خطأ',
+        description: 'حدث خطأ أثناء حفظ التوقيع',
+        variant: 'destructive',
       });
     }
   };
@@ -233,6 +222,8 @@ const TeacherDashboard = () => {
       setSelectedSectionId(null);
       setAbsentStudentIds([]);
       setStudentNotes([]);
+      // Reset signature for next submission - require fresh signature each time
+      setSignatureDataUrl(null);
     } catch (error: any) {
       console.error('Error submitting absence list:', error);
       
@@ -257,12 +248,15 @@ const TeacherDashboard = () => {
     setSelectedSectionId(sectionId);
     setAbsentStudentIds([]);
     setStudentNotes([]);
+    // Reset signature for each new list
+    setSignatureDataUrl(null);
   };
 
   const closeSectionDialog = () => {
     setSelectedSectionId(null);
     setAbsentStudentIds([]);
     setStudentNotes([]);
+    setSignatureDataUrl(null);
   };
 
   if (isLoadingTeacher) {
@@ -309,24 +303,24 @@ const TeacherDashboard = () => {
             <Settings className="w-5 h-5" />
           </Button>
 
-          {/* Center - Title with teacher name */}
-          <h1 className="text-lg font-bold text-foreground">
-            لوحة تحكم الأستاذ - {teacherData.first_name} {teacherData.last_name}
-          </h1>
-
-          {/* Right - Avatar and Logout */}
+          {/* Center - Teacher name with avatar */}
           <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold text-foreground">
+              الأستاذ {teacherData.last_name} {teacherData.first_name}
+            </h1>
             <Avatar className="w-9 h-9 border-2 border-primary">
               <AvatarImage src={teacherData.avatar_url || ''} />
               <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                 {teacherData.first_name[0]}{teacherData.last_name[0]}
               </AvatarFallback>
             </Avatar>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 ml-2" />
-              خروج
-            </Button>
           </div>
+
+          {/* Right - Logout */}
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <LogOut className="w-4 h-4 ml-2" />
+            خروج
+          </Button>
         </div>
       </header>
 
@@ -374,31 +368,27 @@ const TeacherDashboard = () => {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
-              {teacherSections.map((section) => {
-                const sectionStudents = students?.filter(s => s.section_id === section.id) || [];
-                
-                return (
-                  <button
-                    key={section.id}
-                    onClick={() => openSectionDialog(section.id)}
-                    className="glass-card p-5 text-right hover:border-primary/50 transition-all group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                        <Users className="w-6 h-6 text-primary" />
-                      </div>
-                      <div className="flex-1 mr-4">
-                        <span className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors block">
-                          {section.full_name}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          السنة: {section.year}
-                        </span>
-                      </div>
+              {teacherSections.map((section) => (
+                <button
+                  key={section.id}
+                  onClick={() => openSectionDialog(section.id)}
+                  className="glass-card p-5 text-right hover:border-primary/50 transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <Users className="w-6 h-6 text-primary" />
                     </div>
-                  </button>
-                );
-              })}
+                    <div className="flex-1 mr-4">
+                      <span className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors block">
+                        {section.full_name}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        السنة: {section.year}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -408,14 +398,9 @@ const TeacherDashboard = () => {
       <Dialog open={!!selectedSectionId} onOpenChange={closeSectionDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col bg-card">
           <DialogHeader className="pb-4 border-b border-border">
-            <DialogTitle className="text-right flex items-center justify-between">
-              <Button variant="ghost" size="icon" onClick={closeSectionDialog}>
-                <X className="w-5 h-5" />
-              </Button>
-              <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-primary" />
-                <span>قائمة غياب قسم {selectedSection?.full_name}</span>
-              </div>
+            <DialogTitle className="text-right flex items-center gap-3">
+              <FileText className="w-5 h-5 text-primary" />
+              <span>قائمة قسم {selectedSection?.full_name}</span>
             </DialogTitle>
           </DialogHeader>
 
@@ -460,7 +445,6 @@ const TeacherDashboard = () => {
                         </span>
                       </div>
                       
-                      {/* Note field - shown only when student is marked absent */}
                       {isAbsent && (
                         <div className="px-4 pb-4">
                           <Textarea

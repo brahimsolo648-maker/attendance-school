@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
 type NotificationsModalProps = {
@@ -16,13 +16,12 @@ type NotificationsModalProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-type AbsenceLevel = 'first' | 'second' | 'warning' | 'official' | 'removal';
+type AbsenceLevel = 'first' | 'second' | 'official' | 'removal';
 
 const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AbsenceLevel>('first');
 
-  // Fetch all students with their absence counts and first absence date
   const { data: studentsWithAbsences = [], isLoading } = useQuery({
     queryKey: ['students-absences-detailed'],
     queryFn: async () => {
@@ -44,7 +43,6 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
         .select('student_id, date, check_in_time')
         .order('date', { ascending: false });
 
-      // Calculate absence details per student
       const absencesByStudent: Record<string, { count: number; firstDate: string | null; dates: Set<string> }> = {};
       
       (absences || []).forEach((record: any) => {
@@ -61,7 +59,6 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
         }
       });
 
-      // Find last attendance for each student
       const lastAttendanceByStudent: Record<string, string | null> = {};
       (attendanceRecords || []).forEach((record: any) => {
         if (record.check_in_time && !lastAttendanceByStudent[record.student_id]) {
@@ -80,19 +77,17 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
     enabled: open
   });
 
-  // REVISED: Filter students by absence level with new thresholds
+  // 4 levels only (removed warning/إنذار)
   const getStudentsByLevel = (level: AbsenceLevel) => {
     switch (level) {
       case 'first': // إشعار أول: 3-9 أيام
         return studentsWithAbsences.filter(s => s.absenceCount >= 3 && s.absenceCount < 10);
       case 'second': // إشعار ثاني: 10-16 أيام
         return studentsWithAbsences.filter(s => s.absenceCount >= 10 && s.absenceCount < 17);
-      case 'warning': // إنذار: 17-24 أيام
+      case 'official': // إعذار: 17-24 أيام
         return studentsWithAbsences.filter(s => s.absenceCount >= 17 && s.absenceCount < 25);
-      case 'official': // إعذار: 25-31 أيام
-        return studentsWithAbsences.filter(s => s.absenceCount >= 25 && s.absenceCount < 32);
-      case 'removal': // شطب: 32+ أيام
-        return studentsWithAbsences.filter(s => s.absenceCount >= 32);
+      case 'removal': // شطب: 25+ أيام
+        return studentsWithAbsences.filter(s => s.absenceCount >= 25);
       default:
         return [];
     }
@@ -103,34 +98,26 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
       case 'first':
         return {
           label: 'إشعار أول',
-          color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200',
-          borderColor: 'border-yellow-300 dark:border-yellow-700',
+          color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+          borderColor: 'border-amber-300 dark:border-amber-700',
           icon: <Bell className="w-4 h-4" />,
           description: 'غياب 3-9 أيام'
         };
       case 'second':
         return {
           label: 'إشعار ثاني',
-          color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200',
-          borderColor: 'border-orange-300 dark:border-orange-700',
+          color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200',
+          borderColor: 'border-yellow-400 dark:border-yellow-600',
           icon: <AlertTriangle className="w-4 h-4" />,
           description: 'غياب 10-16 يوم'
-        };
-      case 'warning':
-        return {
-          label: 'إنذار',
-          color: 'bg-orange-200 text-orange-900 dark:bg-orange-800/50 dark:text-orange-100',
-          borderColor: 'border-orange-400 dark:border-orange-600',
-          icon: <AlertTriangle className="w-4 h-4" />,
-          description: 'غياب 17-24 يوم'
         };
       case 'official':
         return {
           label: 'إعذار',
-          color: 'bg-amber-200 text-amber-900 dark:bg-amber-800/50 dark:text-amber-100',
-          borderColor: 'border-amber-500 dark:border-amber-600',
+          color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200',
+          borderColor: 'border-orange-400 dark:border-orange-600',
           icon: <FileText className="w-4 h-4" />,
-          description: 'غياب 25-31 يوم - إعذار رسمي'
+          description: 'غياب 17-24 يوم'
         };
       case 'removal':
         return {
@@ -138,7 +125,7 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
           color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
           borderColor: 'border-red-400 dark:border-red-600',
           icon: <XCircle className="w-4 h-4" />,
-          description: 'غياب 32+ يوم - مرحلة شطب'
+          description: 'غياب 25+ يوم'
         };
     }
   };
@@ -148,9 +135,8 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
     navigate(`/admin/student/${studentId}`);
   };
 
-  const levels: AbsenceLevel[] = ['first', 'second', 'warning', 'official', 'removal'];
+  const levels: AbsenceLevel[] = ['first', 'second', 'official', 'removal'];
 
-  // Calculate total notifications
   const totalNotifications = studentsWithAbsences.length;
   const lastUpdate = new Date();
 
@@ -179,7 +165,7 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as AbsenceLevel)}>
-            <TabsList className="grid grid-cols-5 w-full h-auto gap-1 p-1">
+            <TabsList className="grid grid-cols-4 w-full h-auto gap-1 p-1">
               {levels.map(level => {
                 const config = getLevelConfig(level);
                 const count = getStudentsByLevel(level).length;
@@ -205,7 +191,6 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
               
               return (
                 <TabsContent key={level} value={level} className="mt-4">
-                  {/* Level Description */}
                   <div className={`p-2 rounded-lg mb-3 ${config.color} text-xs flex items-center gap-2`}>
                     {config.icon}
                     <span>{config.description}</span>

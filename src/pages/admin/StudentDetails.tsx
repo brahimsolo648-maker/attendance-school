@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, User, Ban, Check, Trash2, CreditCard, Calendar } from 'lucide-react';
+import { ArrowRight, User, Ban, Check, Trash2, CreditCard, Calendar, Clock, FileText, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useStudent, useUpdateStudent, useDeleteStudent } from '@/hooks/useStudents';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import type { Enums } from '@/integrations/supabase/types';
 import StudentCardModal from '@/components/StudentCardModal';
+
 const StudentDetails = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -37,12 +42,43 @@ const StudentDetails = () => {
       setBanSubject(studentData.ban_subject || '');
     }
   });
+
+  // Fetch absence records with teacher details for this student
+  const { data: absenceDetails = [] } = useQuery({
+    queryKey: ['student-absence-details', id],
+    queryFn: async () => {
+      if (!id) return [];
+      const { data, error } = await supabase
+        .from('absence_records')
+        .select(`
+          id,
+          created_at,
+          absence_lists(
+            id,
+            submitted_at,
+            subject,
+            signature_url,
+            teachers(id, first_name, last_name, subject, signature_url, avatar_url)
+          )
+        `)
+        .eq('student_id', id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  // Calculate unique absence days
+  const uniqueAbsenceDays = new Set(
+    absenceDetails.map((r: any) => format(new Date(r.created_at), 'yyyy-MM-dd'))
+  ).size;
   
   const handleBanToggle = async (checked: boolean) => {
     setIsBanned(checked);
     
     if (!checked && id) {
-      // Remove ban
       try {
         await updateStudent.mutateAsync({
           id,
@@ -53,27 +89,16 @@ const StudentDetails = () => {
             ban_subject: null,
           },
         });
-        toast({
-          title: 'تم بنجاح',
-          description: 'تم السماح للتلميذ بالدخول',
-        });
+        toast({ title: 'تم بنجاح', description: 'تم السماح للتلميذ بالدخول' });
       } catch (error) {
-        toast({
-          title: 'خطأ',
-          description: 'حدث خطأ',
-          variant: 'destructive',
-        });
+        toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' });
       }
     }
   };
   
   const handleSaveBan = async () => {
     if (!id || !banReason) {
-      toast({
-        title: 'خطأ',
-        description: 'يرجى اختيار سبب المنع',
-        variant: 'destructive',
-      });
+      toast({ title: 'خطأ', description: 'يرجى اختيار سبب المنع', variant: 'destructive' });
       return;
     }
     
@@ -87,16 +112,9 @@ const StudentDetails = () => {
           ban_subject: banSubject,
         },
       });
-      toast({
-        title: 'تم بنجاح',
-        description: 'تم تفعيل المنع',
-      });
+      toast({ title: 'تم بنجاح', description: 'تم تفعيل المنع' });
     } catch (error) {
-      toast({
-        title: 'خطأ',
-        description: 'حدث خطأ',
-        variant: 'destructive',
-      });
+      toast({ title: 'خطأ', description: 'حدث خطأ', variant: 'destructive' });
     }
   };
   
@@ -105,17 +123,10 @@ const StudentDetails = () => {
     
     try {
       await deleteStudent.mutateAsync(id);
-      toast({
-        title: 'تم بنجاح',
-        description: 'تم حذف التلميذ',
-      });
+      toast({ title: 'تم بنجاح', description: 'تم حذف التلميذ' });
       navigate(-1);
     } catch (error) {
-      toast({
-        title: 'خطأ',
-        description: 'حدث خطأ أثناء الحذف',
-        variant: 'destructive',
-      });
+      toast({ title: 'خطأ', description: 'حدث خطأ أثناء الحذف', variant: 'destructive' });
     }
   };
   
@@ -179,15 +190,84 @@ const StudentDetails = () => {
                   {format(new Date(student.birth_date), 'PPP', { locale: ar })}
                 </p>
               )}
-              {student.is_banned && (
-                <div className="mt-2 inline-flex items-center gap-1 px-2 py-1 bg-destructive/10 text-destructive rounded-lg text-sm">
-                  <Ban className="w-4 h-4" />
-                  ممنوع من الدخول
-                </div>
-              )}
+              <div className="flex items-center gap-3 mt-2">
+                <Badge variant="outline" className="font-bold">
+                  {uniqueAbsenceDays} يوم غياب
+                </Badge>
+                {student.is_banned && (
+                  <Badge variant="destructive" className="flex items-center gap-1">
+                    <Ban className="w-3 h-3" />
+                    ممنوع من الدخول
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Absence History - Teachers who marked this student */}
+        {absenceDetails.length > 0 && (
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="w-5 h-5 text-primary" />
+                سجل الغياب - الأساتذة المسجلون
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {absenceDetails.map((record: any) => {
+                const list = record.absence_lists;
+                const teacher = list?.teachers;
+                if (!teacher) return null;
+
+                return (
+                  <div
+                    key={record.id}
+                    className="p-4 rounded-xl border border-border bg-secondary/30 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="w-4 h-4" />
+                        {format(new Date(record.created_at), 'yyyy/MM/dd - HH:mm', { locale: ar })}
+                      </div>
+                      <Badge variant="outline">{list?.subject || teacher.subject}</Badge>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        {teacher.avatar_url ? (
+                          <img src={teacher.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          <PenLine className="w-5 h-5 text-primary" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {teacher.last_name} {teacher.first_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{teacher.subject}</p>
+                      </div>
+                    </div>
+
+                    {/* Teacher Signature */}
+                    {(list?.signature_url || teacher.signature_url) && (
+                      <div className="mt-2">
+                        <p className="text-xs text-muted-foreground mb-1">توقيع الأستاذ:</p>
+                        <div className="bg-white rounded-lg p-2 border border-border inline-block">
+                          <img
+                            src={list?.signature_url || teacher.signature_url}
+                            alt="توقيع الأستاذ"
+                            className="h-12 max-w-[200px] object-contain"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
         
         {/* Actions */}
         <div className="space-y-4">
