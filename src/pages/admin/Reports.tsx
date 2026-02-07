@@ -10,20 +10,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
-// Color coding based on absence days (4 levels)
-// < 3: white (إشعار أول), 3-9: yellow (إشعار ثاني), 10-31: orange (إعذار), ≥32: red (شطب)
+// Color coding based on absence days (5 levels)
+// < 3: no color, 3-9: yellow (إشعار أول), 10-16: orange (إشعار ثاني), 17-31: red-orange (إعذار), ≥32: red (شطب)
 const getAbsenceColor = (days: number): string => {
   if (days >= 32) return 'bg-red-100 dark:bg-red-900/30 border-l-4 border-l-red-500';
-  if (days >= 10) return 'bg-orange-100 dark:bg-orange-900/30 border-l-4 border-l-orange-500';
+  if (days >= 17) return 'bg-orange-100 dark:bg-orange-900/30 border-l-4 border-l-orange-500';
+  if (days >= 10) return 'bg-amber-100 dark:bg-amber-900/30 border-l-4 border-l-amber-500';
   if (days >= 3) return 'bg-yellow-100 dark:bg-yellow-900/30 border-l-4 border-l-yellow-500';
   return '';
 };
 
 const getAbsenceLevel = (days: number): { label: string; variant: 'destructive' | 'secondary' | 'outline' | 'default' } => {
   if (days >= 32) return { label: 'شطب', variant: 'destructive' };
-  if (days >= 10) return { label: 'إعذار', variant: 'default' };
-  if (days >= 3) return { label: 'إشعار ثاني', variant: 'secondary' };
-  return { label: 'إشعار أول', variant: 'outline' };
+  if (days >= 17) return { label: 'إعذار', variant: 'default' };
+  if (days >= 10) return { label: 'إشعار ثاني', variant: 'secondary' };
+  if (days >= 3) return { label: 'إشعار أول', variant: 'outline' };
+  return { label: '-', variant: 'outline' };
 };
 
 const Reports = () => {
@@ -131,8 +133,9 @@ const Reports = () => {
 
     let rows = '';
     studentsReport.forEach((student, index) => {
-      const colorClass = student.absenceDays >= 32 ? 'red' :
-        student.absenceDays >= 10 ? 'orange' :
+    const colorClass = student.absenceDays >= 32 ? 'red' :
+        student.absenceDays >= 17 ? 'orange' :
+        student.absenceDays >= 10 ? 'amber' :
         student.absenceDays >= 3 ? 'yellow' : '';
       const level = getAbsenceLevel(student.absenceDays);
 
@@ -166,6 +169,7 @@ const Reports = () => {
             th { background: #f0f0f0; font-weight: 600; }
             tr.red { background: #fee2e2; }
             tr.orange { background: #ffedd5; }
+            tr.amber { background: #fef3c7; }
             tr.yellow { background: #fef9c3; }
           </style>
         </head>
@@ -224,15 +228,19 @@ const Reports = () => {
           <div className="flex flex-wrap gap-3 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded bg-background border-2 border-border"></div>
-              <span>أقل من 3 أيام (إشعار أول)</span>
+              <span>أقل من 3 أيام (بدون إشعار)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded bg-yellow-100 dark:bg-yellow-900/30 border-2 border-yellow-500"></div>
-              <span>3-9 أيام (إشعار ثاني)</span>
+              <span>3-9 أيام (إشعار أول)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded bg-amber-100 dark:bg-amber-900/30 border-2 border-amber-500"></div>
+              <span>10-16 يوم (إشعار ثاني)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded bg-orange-100 dark:bg-orange-900/30 border-2 border-orange-500"></div>
-              <span>10-31 يوم (إعذار)</span>
+              <span>17-31 يوم (إعذار)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded bg-red-100 dark:bg-red-900/30 border-2 border-red-500"></div>
@@ -242,17 +250,21 @@ const Reports = () => {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
           <div className="glass-card p-4 text-center">
             <p className="text-2xl font-bold text-foreground">{studentsReport.length}</p>
             <p className="text-xs text-muted-foreground">إجمالي الغائبين</p>
           </div>
           <div className="glass-card p-4 text-center">
             <p className="text-2xl font-bold text-yellow-600">{studentsReport.filter(s => s.absenceDays >= 3 && s.absenceDays < 10).length}</p>
+            <p className="text-xs text-muted-foreground">إشعار أول</p>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <p className="text-2xl font-bold text-amber-600">{studentsReport.filter(s => s.absenceDays >= 10 && s.absenceDays < 17).length}</p>
             <p className="text-xs text-muted-foreground">إشعار ثاني</p>
           </div>
           <div className="glass-card p-4 text-center">
-            <p className="text-2xl font-bold text-orange-600">{studentsReport.filter(s => s.absenceDays >= 10 && s.absenceDays < 32).length}</p>
+            <p className="text-2xl font-bold text-orange-600">{studentsReport.filter(s => s.absenceDays >= 17 && s.absenceDays < 32).length}</p>
             <p className="text-xs text-muted-foreground">إعذار</p>
           </div>
           <div className="glass-card p-4 text-center">
