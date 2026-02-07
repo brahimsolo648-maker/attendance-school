@@ -131,12 +131,12 @@ const TeacherDashboard = () => {
   };
 
   const handleSignatureSave = async (dataUrl: string) => {
-    if (!teacherData) return;
+    if (!teacherData || !authUserId) return;
     
     try {
       const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-      const fileName = `${teacherData.id}_${Date.now()}.png`;
+      const fileName = `teacher_${teacherData.id}_${Date.now()}.png`;
       
       const { error: uploadError } = await supabase.storage
         .from('signatures')

@@ -77,17 +77,18 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
     enabled: open
   });
 
-  // 4 levels only (removed warning/إنذار)
+  // 4 levels: إشعار ثاني (3-9), إعذار (10-31), شطب (32+)
+  // إشعار أول (<3) is not shown in notifications since it's the normal state
   const getStudentsByLevel = (level: AbsenceLevel) => {
     switch (level) {
-      case 'first': // إشعار أول: 3-9 أيام
+      case 'first': // إشعار أول not applicable in notifications
+        return [];
+      case 'second': // إشعار ثاني: 3-9 أيام
         return studentsWithAbsences.filter(s => s.absenceCount >= 3 && s.absenceCount < 10);
-      case 'second': // إشعار ثاني: 10-16 أيام
-        return studentsWithAbsences.filter(s => s.absenceCount >= 10 && s.absenceCount < 17);
-      case 'official': // إعذار: 17-24 أيام
-        return studentsWithAbsences.filter(s => s.absenceCount >= 17 && s.absenceCount < 25);
-      case 'removal': // شطب: 25+ أيام
-        return studentsWithAbsences.filter(s => s.absenceCount >= 25);
+      case 'official': // إعذار: 10-31 يوم
+        return studentsWithAbsences.filter(s => s.absenceCount >= 10 && s.absenceCount < 32);
+      case 'removal': // شطب: 32+ يوم
+        return studentsWithAbsences.filter(s => s.absenceCount >= 32);
       default:
         return [];
     }
@@ -98,10 +99,10 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
       case 'first':
         return {
           label: 'إشعار أول',
-          color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
-          borderColor: 'border-amber-300 dark:border-amber-700',
+          color: 'bg-background text-foreground',
+          borderColor: 'border-border',
           icon: <Bell className="w-4 h-4" />,
-          description: 'غياب 3-9 أيام'
+          description: 'أقل من 3 أيام'
         };
       case 'second':
         return {
@@ -109,7 +110,7 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
           color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200',
           borderColor: 'border-yellow-400 dark:border-yellow-600',
           icon: <AlertTriangle className="w-4 h-4" />,
-          description: 'غياب 10-16 يوم'
+          description: 'غياب 3-9 أيام'
         };
       case 'official':
         return {
@@ -117,7 +118,7 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
           color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200',
           borderColor: 'border-orange-400 dark:border-orange-600',
           icon: <FileText className="w-4 h-4" />,
-          description: 'غياب 17-24 يوم'
+          description: 'غياب 10-31 يوم'
         };
       case 'removal':
         return {
@@ -125,7 +126,7 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
           color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
           borderColor: 'border-red-400 dark:border-red-600',
           icon: <XCircle className="w-4 h-4" />,
-          description: 'غياب 25+ يوم'
+          description: 'غياب 32+ يوم'
         };
     }
   };
@@ -135,7 +136,7 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
     navigate(`/admin/student/${studentId}`);
   };
 
-  const levels: AbsenceLevel[] = ['first', 'second', 'official', 'removal'];
+  const levels: AbsenceLevel[] = ['second', 'official', 'removal'];
 
   const totalNotifications = studentsWithAbsences.length;
   const lastUpdate = new Date();
@@ -165,7 +166,7 @@ const NotificationsModal = ({ open, onOpenChange }: NotificationsModalProps) => 
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as AbsenceLevel)}>
-            <TabsList className="grid grid-cols-4 w-full h-auto gap-1 p-1">
+            <TabsList className="grid grid-cols-3 w-full h-auto gap-1 p-1">
               {levels.map(level => {
                 const config = getLevelConfig(level);
                 const count = getStudentsByLevel(level).length;
