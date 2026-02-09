@@ -294,8 +294,8 @@ const QRScanner = () => {
       </header>
 
       {/* Camera - fills available space */}
-      <div className="flex-1 relative bg-black overflow-hidden" ref={containerRef}>
-        <div id="qr-reader" className="w-full h-full [&>video]:!object-cover [&>video]:!w-full [&>video]:!h-full" />
+      <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center" ref={containerRef}>
+        <div id="qr-reader" className="w-full h-full max-w-[800px] mx-auto [&>video]:!object-cover [&>video]:!w-full [&>video]:!h-full" />
         
         {!isScanning && (
           <div className="absolute inset-0 flex items-center justify-center bg-muted/90">
