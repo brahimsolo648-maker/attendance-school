@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import type { Enums } from '@/integrations/supabase/types';
-import StudentCardModal from '@/components/StudentCardModal';
+
 
 const StudentDetails = () => {
   const navigate = useNavigate();
@@ -27,7 +27,6 @@ const StudentDetails = () => {
   const deleteStudent = useDeleteStudent();
   
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showCardModal, setShowCardModal] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
   const [banReason, setBanReason] = useState<Enums<'ban_reason'> | ''>('');
   const [banCustomReason, setBanCustomReason] = useState('');
@@ -273,7 +272,7 @@ const StudentDetails = () => {
         <div className="space-y-4">
           {/* Extract Card Button */}
           <button
-            onClick={() => setShowCardModal(true)}
+            onClick={() => navigate(`/admin/student/${id}/card`)}
             className="glass-card p-4 w-full text-right hover:border-primary/50 transition-all flex items-center justify-between"
           >
             <CreditCard className="w-5 h-5 text-primary" />
@@ -378,15 +377,6 @@ const StudentDetails = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Student Card Modal */}
-      <StudentCardModal
-        open={showCardModal}
-        onOpenChange={setShowCardModal}
-        student={student ? {
-          ...student,
-          section: section
-        } : null}
-      />
     </div>
   );
 };
