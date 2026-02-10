@@ -32,11 +32,11 @@ const QRScanner = () => {
   const autoStartRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Responsive scan box size
+  // Responsive scan box size - 1/4 of screen
   useEffect(() => {
     const updateSize = () => {
-      const vw = window.innerWidth;
-      const size = Math.min(Math.max(Math.floor(vw * 0.6), 180), 320);
+      const smaller = Math.min(window.innerWidth, window.innerHeight);
+      const size = Math.floor(smaller / 2);
       // Round to nearest even number for qrbox
       setScanBoxSize(size % 2 === 0 ? size : size - 1);
     };
@@ -188,7 +188,7 @@ const QRScanner = () => {
         {
           fps: 15,
           qrbox: { width: scanBoxSize, height: scanBoxSize },
-          aspectRatio: 1.333,
+          aspectRatio: 1.0,
           disableFlip: false
         },
         (decodedText) => processQRCode(decodedText),
@@ -295,7 +295,11 @@ const QRScanner = () => {
 
       {/* Camera - fills available space */}
       <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center" ref={containerRef}>
-        <div id="qr-reader" className="w-full h-full max-w-[800px] mx-auto [&>video]:!object-cover [&>video]:!w-full [&>video]:!h-full" />
+        <div 
+          id="qr-reader" 
+          className="relative aspect-square mx-auto [&>video]:!object-cover [&>video]:!w-full [&>video]:!h-full"
+          style={{ width: scanBoxSize * 2, maxWidth: '100%', maxHeight: '100%' }}
+        />
         
         {!isScanning && (
           <div className="absolute inset-0 flex items-center justify-center bg-muted/90">
