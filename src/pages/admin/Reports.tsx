@@ -343,7 +343,7 @@ const Reports = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate(`/admin/student/${student.id}`)}
+                          onClick={() => navigate(`/admin/student/${student.id}?from=reports`)}
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
