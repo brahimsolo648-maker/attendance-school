@@ -4,8 +4,8 @@
   "description": "نظام متكامل لإدارة حضور وغياب التلاميذ بتقنية المسح الذكي",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1e293b",
-  "theme_color": "#b91c1c",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
   "orientation": "portrait-primary",
   "icons": [
     {

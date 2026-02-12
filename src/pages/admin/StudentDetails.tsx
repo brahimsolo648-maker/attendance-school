@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowRight, User, Ban, Check, Trash2, CreditCard, Calendar, Clock, FileText, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -21,6 +21,9 @@ const StudentDetails = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
+  
+  const [searchParams] = useSearchParams();
+  const showAbsenceHistory = searchParams.get('from') === 'reports';
   
   const { data: studentData, isLoading } = useStudent(id || null);
   const updateStudent = useUpdateStudent();
@@ -204,8 +207,8 @@ const StudentDetails = () => {
           </div>
         </div>
 
-        {/* Absence History - Teachers who marked this student */}
-        {absenceDetails.length > 0 && (
+        {/* Absence History - Teachers who marked this student (only from Reports) */}
+        {showAbsenceHistory && absenceDetails.length > 0 && (
           <Card className="glass-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">

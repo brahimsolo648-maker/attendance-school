@@ -118,8 +118,8 @@ export default {
           "50%": { transform: "translateY(-10px)" },
         },
         glow: {
-          "0%": { boxShadow: "0 0 20px hsl(0 65% 48% / 0.3)" },
-          "100%": { boxShadow: "0 0 40px hsl(0 65% 48% / 0.6)" },
+          "0%": { boxShadow: "0 0 12px hsl(210 90% 58% / 0.2)" },
+          "100%": { boxShadow: "0 0 24px hsl(210 90% 58% / 0.4)" },
         },
         shimmer: {
           "0%": { backgroundPosition: "-200% 0" },
