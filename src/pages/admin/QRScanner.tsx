@@ -241,7 +241,7 @@ const QRScanner = () => {
   // External scanner (USB barcode reader) support
   useEffect(() => {
     let buffer = '';
-    let timeout: NodeJS.Timeout;
+    let timeout: ReturnType<typeof setTimeout>;
     const handleKeyPress = (e: KeyboardEvent) => {
       if (document.activeElement?.tagName === 'INPUT') return;
       if (e.key === 'Enter' && buffer.length > 0) {
