@@ -293,12 +293,12 @@ const QRScanner = () => {
         </div>
       </header>
 
-      {/* Camera - fills available space */}
+      {/* Camera section - controlled size */}
       <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center" ref={containerRef}>
         <div 
           id="qr-reader" 
           className="relative aspect-square mx-auto [&>video]:!object-cover [&>video]:!w-full [&>video]:!h-full"
-          style={{ width: scanBoxSize * 2, maxWidth: '100%', maxHeight: '100%' }}
+          style={{ width: scanBoxSize * 1.8, maxWidth: '100%', maxHeight: '100%' }}
         />
         
         {!isScanning && (
