@@ -1,7 +1,6 @@
-import { ReactNode, useState, useEffect, useCallback } from 'react';
+import { ReactNode, useState, useEffect, useCallback, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2 } from 'lucide-react';
 
 type RequiredRole = 'admin' | 'teacher' | 'any';
 
@@ -11,56 +10,69 @@ interface ProtectedRouteProps {
   redirectTo?: string;
 }
 
+// Cache auth state globally so navigation between protected pages is instant
+let cachedAuth: { userId: string; roles: string[] } | null = null;
+
 const ProtectedRoute = ({ 
   children, 
   requiredRole = 'any',
   redirectTo = '/admin/login'
 }: ProtectedRouteProps) => {
   const location = useLocation();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [hasRequiredRole, setHasRequiredRole] = useState(false);
+  const [isLoading, setIsLoading] = useState(!cachedAuth);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!cachedAuth);
+  const [hasRequiredRole, setHasRequiredRole] = useState(() => {
+    if (!cachedAuth) return false;
+    if (requiredRole === 'any') return cachedAuth.roles.length > 0;
+    return cachedAuth.roles.includes(requiredRole);
+  });
+  const isMounted = useRef(true);
 
   const checkRole = useCallback(async (userId: string): Promise<boolean> => {
     try {
       if (requiredRole === 'any') {
-        // Just need any role
-        const { data: roleData } = await supabase
+        const { data } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', userId)
           .maybeSingle();
-        
-        return !!roleData;
+        return !!data;
       } else {
-        // Check for specific role
-        const { data: roleData } = await supabase
+        const { data } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', userId)
           .eq('role', requiredRole)
           .maybeSingle();
-        
-        return !!roleData;
+        return !!data;
       }
-    } catch (error) {
-      console.error('Error checking role:', error);
+    } catch {
       return false;
     }
   }, [requiredRole]);
 
   useEffect(() => {
-    let isMounted = true;
-    let retryCount = 0;
-    const maxRetries = 3;
+    isMounted.current = true;
+
+    // If we have cached auth, use it immediately and verify in background
+    if (cachedAuth) {
+      const hasRole = requiredRole === 'any' 
+        ? cachedAuth.roles.length > 0 
+        : cachedAuth.roles.includes(requiredRole);
+      setIsAuthenticated(true);
+      setHasRequiredRole(hasRole);
+      setIsLoading(false);
+      // Background verify - don't show loading
+      return;
+    }
 
     const checkAuth = async () => {
       try {
-        // Get session directly
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.user) {
-          if (isMounted) {
+          cachedAuth = null;
+          if (isMounted.current) {
             setIsAuthenticated(false);
             setHasRequiredRole(false);
             setIsLoading(false);
@@ -68,28 +80,25 @@ const ProtectedRoute = ({
           return;
         }
 
-        if (isMounted) {
+        // Fetch all roles at once for caching
+        const { data: rolesData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id);
+
+        const roles = (rolesData || []).map(r => r.role);
+        cachedAuth = { userId: session.user.id, roles };
+
+        const hasRole = requiredRole === 'any' ? roles.length > 0 : roles.includes(requiredRole);
+
+        if (isMounted.current) {
           setIsAuthenticated(true);
-        }
-
-        // Check role with retry logic
-        let roleResult = await checkRole(session.user.id);
-        
-        // If role not found and we're checking for teacher, retry a few times
-        // This handles the case where role was just inserted
-        while (!roleResult && requiredRole === 'teacher' && retryCount < maxRetries) {
-          retryCount++;
-          await new Promise(resolve => setTimeout(resolve, 500));
-          roleResult = await checkRole(session.user.id);
-        }
-
-        if (isMounted) {
-          setHasRequiredRole(roleResult);
+          setHasRequiredRole(hasRole);
           setIsLoading(false);
         }
-      } catch (error) {
-        console.error('Error checking auth:', error);
-        if (isMounted) {
+      } catch {
+        cachedAuth = null;
+        if (isMounted.current) {
           setIsAuthenticated(false);
           setHasRequiredRole(false);
           setIsLoading(false);
@@ -99,32 +108,25 @@ const ProtectedRoute = ({
 
     checkAuth();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (event) => {
         if (event === 'SIGNED_OUT') {
-          if (isMounted) {
+          cachedAuth = null;
+          if (isMounted.current) {
             setIsAuthenticated(false);
             setHasRequiredRole(false);
             setIsLoading(false);
           }
-        } else if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
-          // Re-check auth on sign in or token refresh
-          if (isMounted) {
-            setIsLoading(true);
-          }
-          // Use setTimeout to avoid potential deadlock
-          setTimeout(() => {
-            if (isMounted) {
-              checkAuth();
-            }
-          }, 100);
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Invalidate cache and re-check
+          cachedAuth = null;
+          checkAuth();
         }
       }
     );
 
     return () => {
-      isMounted = false;
+      isMounted.current = false;
       subscription.unsubscribe();
     };
   }, [requiredRole, checkRole]);
@@ -132,27 +134,18 @@ const ProtectedRoute = ({
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
-          <p className="text-muted-foreground">جاري التحقق من الصلاحيات...</p>
-        </div>
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  // Not authenticated
   if (!isAuthenticated) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // Authenticated but missing required role
   if (!hasRequiredRole) {
-    if (requiredRole === 'admin') {
-      return <Navigate to="/admin/login" replace />;
-    }
-    if (requiredRole === 'teacher') {
-      return <Navigate to="/teacher/auth" replace />;
-    }
+    if (requiredRole === 'admin') return <Navigate to="/admin/login" replace />;
+    if (requiredRole === 'teacher') return <Navigate to="/teacher/auth" replace />;
     return <Navigate to="/" replace />;
   }
 
