@@ -23,27 +23,12 @@ const QRScanner = () => {
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [externalInput, setExternalInput] = useState('');
   const [showExternalInput, setShowExternalInput] = useState(false);
-  const [scanBoxSize, setScanBoxSize] = useState(250);
   
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScannedRef = useRef<string>('');
   const lastScanTimeRef = useRef<number>(0);
   const externalInputRef = useRef<HTMLInputElement>(null);
   const autoStartRef = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Responsive scan box size - 30% of screen area (sqrt(0.3) ≈ 0.548 of smaller dimension)
-  useEffect(() => {
-    const updateSize = () => {
-      const smaller = Math.min(window.innerWidth, window.innerHeight);
-      const size = Math.floor(smaller * 0.548);
-      // Round to nearest even number for qrbox
-      setScanBoxSize(size % 2 === 0 ? size : size - 1);
-    };
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
 
   const playSound = useCallback((type: 'success' | 'error') => {
     try {
@@ -180,15 +165,32 @@ const QRScanner = () => {
 
   const startScanning = useCallback(async () => {
     try {
+      // Clean up any existing scanner first
+      if (scannerRef.current) {
+        try { await scannerRef.current.stop(); } catch (e) {}
+        scannerRef.current = null;
+      }
+
+      const readerEl = document.getElementById('qr-reader');
+      if (!readerEl) return;
+
+      // Clear any leftover html5-qrcode DOM
+      readerEl.innerHTML = '';
+
       const scanner = new Html5Qrcode('qr-reader');
       scannerRef.current = scanner;
+
+      // Calculate qrbox: fit within the container but leave margin
+      const containerWidth = readerEl.clientWidth;
+      const containerHeight = readerEl.clientHeight;
+      const qrSize = Math.floor(Math.min(containerWidth, containerHeight) * 0.7);
+      const evenQrSize = qrSize % 2 === 0 ? qrSize : qrSize - 1;
 
       await scanner.start(
         { facingMode },
         {
           fps: 15,
-          qrbox: { width: scanBoxSize, height: scanBoxSize },
-          aspectRatio: 1.0,
+          qrbox: { width: evenQrSize, height: evenQrSize },
           disableFlip: false
         },
         (decodedText) => processQRCode(decodedText),
@@ -199,21 +201,22 @@ const QRScanner = () => {
       console.error('Error starting scanner:', error);
       toast.error('فشل في تشغيل الكاميرا. تأكد من السماح بالوصول للكاميرا');
     }
-  }, [facingMode, processQRCode, scanBoxSize]);
+  }, [facingMode, processQRCode]);
 
   const stopScanning = useCallback(async () => {
-    if (scannerRef.current && isScanning) {
+    if (scannerRef.current) {
       try { await scannerRef.current.stop(); } catch (e) { console.error(e); }
       scannerRef.current = null;
     }
     setIsScanning(false);
-  }, [isScanning]);
+  }, []);
 
   const switchCamera = useCallback(async () => {
     await stopScanning();
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   }, [stopScanning]);
 
+  // Auto-start camera on mount
   useEffect(() => {
     if (!autoStartRef.current) {
       autoStartRef.current = true;
@@ -227,6 +230,7 @@ const QRScanner = () => {
     };
   }, []);
 
+  // Restart on camera switch
   useEffect(() => {
     if (autoStartRef.current && !isScanning) startScanning();
   }, [facingMode]);
@@ -260,21 +264,21 @@ const QRScanner = () => {
   const isEntry = scanType === 'entry';
 
   const resultConfig = lastResult ? {
-    success: { icon: <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-success" />, bg: 'border-success/50 bg-success/10' },
-    error: { icon: <XCircle className="w-10 h-10 sm:w-12 sm:h-12 text-destructive" />, bg: 'border-destructive/50 bg-destructive/10' },
-    warning: { icon: <AlertTriangle className="w-10 h-10 sm:w-12 sm:h-12 text-warning" />, bg: 'border-warning/50 bg-warning/10' },
+    success: { icon: <CheckCircle className="w-8 h-8 text-green-500" />, bg: 'border-green-500/30 bg-green-500/10' },
+    error: { icon: <XCircle className="w-8 h-8 text-destructive" />, bg: 'border-destructive/30 bg-destructive/10' },
+    warning: { icon: <AlertTriangle className="w-8 h-8 text-yellow-500" />, bg: 'border-yellow-500/30 bg-yellow-500/10' },
   }[lastResult.type] : null;
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background">
-      {/* Compact Header */}
-      <header className="glass-nav shrink-0">
-        <div className="flex items-center justify-between h-12 px-3 sm:px-4">
-          <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => navigate('/admin/main')}>
-            <ArrowRight className="w-4 h-4 ml-1" />
+    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
+      {/* Header */}
+      <header className="shrink-0 border-b border-border bg-background/95 backdrop-blur-sm z-10">
+        <div className="flex items-center justify-between h-12 px-3">
+          <Button variant="ghost" size="sm" className="h-8 px-2 gap-1" onClick={() => navigate('/admin/main')}>
+            <ArrowRight className="w-4 h-4" />
             <span className="text-sm">العودة</span>
           </Button>
-          <h1 className="text-sm sm:text-base font-bold text-foreground">
+          <h1 className="text-sm font-bold text-foreground">
             {isEntry ? '📥 تسجيل الدخول' : '📤 تسجيل الخروج'}
           </h1>
           <div className="flex gap-1">
@@ -293,91 +297,63 @@ const QRScanner = () => {
         </div>
       </header>
 
-      {/* Camera section - controlled size */}
-      <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center" ref={containerRef}>
+      {/* Camera - exactly 30% of viewport height */}
+      <div className="shrink-0 relative bg-black flex items-center justify-center" style={{ height: '30dvh' }}>
         <div 
           id="qr-reader" 
-          className="relative aspect-square mx-auto [&>video]:!object-cover [&>video]:!w-full [&>video]:!h-full"
-          style={{ width: scanBoxSize * 1.8, maxWidth: '100%', maxHeight: '100%' }}
+          className="w-full h-full [&>video]:!object-cover [&>video]:!w-full [&>video]:!h-full [&>video]:!max-h-none [&>video]:!max-w-none [&_#qr-shaded-region]:!border-none"
+          style={{ position: 'relative' }}
         />
         
         {!isScanning && (
           <div className="absolute inset-0 flex items-center justify-center bg-muted/90">
-            <div className="text-center space-y-3">
-              <Camera className="w-12 h-12 mx-auto text-muted-foreground animate-pulse" />
-              <p className="text-muted-foreground text-sm">جاري تشغيل الكاميرا...</p>
-            </div>
-          </div>
-        )}
-
-        {/* Minimal scan overlay - no red border */}
-        {isScanning && (
-          <div className="absolute inset-0 pointer-events-none">
-            {/* Dim surrounding area */}
-            <div className="absolute inset-0 bg-black/30" />
-            
-            {/* Clear scan window */}
-            <div 
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-              style={{ width: scanBoxSize, height: scanBoxSize }}
-            >
-              <div 
-                className="absolute inset-0"
-                style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.3)' }}
-              />
-              
-              {/* Subtle white corner markers */}
-              <div className="absolute -top-0.5 -left-0.5 w-6 h-6 border-t-2 border-l-2 border-white/80 rounded-tl-md" />
-              <div className="absolute -top-0.5 -right-0.5 w-6 h-6 border-t-2 border-r-2 border-white/80 rounded-tr-md" />
-              <div className="absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-2 border-l-2 border-white/80 rounded-bl-md" />
-              <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-2 border-r-2 border-white/80 rounded-br-md" />
-
-              {/* Subtle scan line */}
-              <div className="absolute inset-x-3 top-1/2 h-px bg-white/40 animate-pulse" />
+            <div className="text-center space-y-2">
+              <Camera className="w-10 h-10 mx-auto text-muted-foreground animate-pulse" />
+              <p className="text-muted-foreground text-xs">جاري تشغيل الكاميرا...</p>
             </div>
           </div>
         )}
 
         {isProcessing && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <div className="w-10 h-10 border-3 border-white border-t-transparent rounded-full animate-spin" />
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
           </div>
         )}
 
-        {/* Camera toggle floating button */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+        {/* Camera toggle */}
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10">
           <Button
             variant={isScanning ? 'destructive' : 'default'}
             size="sm"
-            className="h-9 rounded-full shadow-lg px-4"
+            className="h-8 rounded-full shadow-lg px-3 text-xs gap-1"
             onClick={isScanning ? stopScanning : startScanning}
           >
             {isScanning ? (
-              <><CameraOff className="w-4 h-4 ml-1" /><span className="text-xs">إيقاف</span></>
+              <><CameraOff className="w-3.5 h-3.5" /><span>إيقاف</span></>
             ) : (
-              <><Camera className="w-4 h-4 ml-1" /><span className="text-xs">تشغيل</span></>
+              <><Camera className="w-3.5 h-3.5" /><span>تشغيل</span></>
             )}
           </Button>
         </div>
       </div>
 
-      {/* Result + Controls - bottom panel */}
-      <div className="shrink-0 p-3 space-y-2 bg-background">
+      {/* Bottom panel - fills remaining space */}
+      <div className="flex-1 overflow-auto p-3 space-y-3">
         {/* Scan Result */}
         {lastResult && resultConfig ? (
-          <div className={`glass-card !p-3 border-2 animate-slide-up ${resultConfig.bg}`}>
+          <div className={`rounded-xl p-3 border-2 ${resultConfig.bg}`}>
             <div className="flex items-center gap-3">
               {resultConfig.icon}
               <div className="flex-1 min-w-0">
                 {lastResult.studentName && (
-                  <p className="font-bold text-foreground text-base truncate">{lastResult.studentName}</p>
+                  <p className="font-bold text-foreground text-sm truncate">{lastResult.studentName}</p>
                 )}
-                <p className="text-sm text-muted-foreground">{lastResult.message}</p>
+                <p className="text-xs text-muted-foreground">{lastResult.message}</p>
               </div>
             </div>
           </div>
         ) : (
-          <div className="glass-card !p-3 text-center">
+          <div className="rounded-xl border border-border p-4 text-center">
             <p className="text-sm text-muted-foreground">
               {isEntry ? '📥 وجّه الكاميرا نحو رمز QR للتلميذ' : '📤 وجّه الكاميرا نحو رمز QR للتلميذ'}
             </p>
@@ -386,7 +362,7 @@ const QRScanner = () => {
 
         {/* Manual input */}
         {showExternalInput && (
-          <div className="flex gap-2 animate-slide-up">
+          <div className="flex gap-2">
             <input
               ref={externalInputRef}
               type="text"
@@ -394,7 +370,7 @@ const QRScanner = () => {
               onChange={(e) => setExternalInput(e.target.value)}
               onKeyDown={handleExternalInput}
               placeholder="أدخل رقم الطالب"
-              className="flex-1 input-styled text-center text-sm h-9"
+              className="flex-1 rounded-lg border border-border bg-background px-3 text-center text-sm h-9 focus:outline-none focus:ring-2 focus:ring-ring"
               autoFocus
             />
             <Button
