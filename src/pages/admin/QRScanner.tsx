@@ -300,7 +300,7 @@ const QRScanner = () => {
       </header>
 
       {/* Camera area - 30% of viewport, centered square */}
-      <div className="shrink-0 relative bg-black flex items-center justify-center" style={{ height: '30dvh' }}>
+      <div className="shrink-0 relative bg-black flex items-center justify-center" style={{ height: '40dvh' }}>
         {/* Square camera container */}
         <div className="relative h-full aspect-square overflow-hidden">
           <div
