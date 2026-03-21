@@ -76,14 +76,14 @@ const SectionCardsPage = () => {
   // Refs for rendering cards
   const cardRefsMap = useRef<Map<string, CardRefs>>(new Map());
 
-  const generateBarcodeNumber = useCallback((studentId: string, studentCode?: string, barcodeNum?: string): string => {
+  const generateBarcodeNumber = useCallback((studentCode?: string, barcodeNum?: string, studentId?: string): string => {
     if (barcodeNum) {
       return barcodeNum.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
     }
     if (studentCode) {
       return studentCode.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
     }
-    const hash = studentId.replace(/-/g, '').slice(0, 12);
+    const hash = (studentId || '').replace(/-/g, '').slice(0, 12);
     let numericHash = '';
     for (let i = 0; i < 12; i++) {
       const char = hash[i] || '0';
@@ -93,11 +93,11 @@ const SectionCardsPage = () => {
     return numericHash;
   }, []);
 
-  const initializeBarcode = useCallback((ref: SVGSVGElement | null, studentId: string, studentCode?: string, barcodeNum?: string) => {
+  const initializeBarcode = useCallback((ref: SVGSVGElement | null, studentCode?: string, barcodeNum?: string, studentId?: string) => {
     if (!ref) return;
     
     try {
-      const barcodeNumber = generateBarcodeNumber(studentId, studentCode, barcodeNum);
+      const barcodeNumber = generateBarcodeNumber(studentCode, barcodeNum, studentId);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
         width: 1.2,
@@ -110,7 +110,7 @@ const SectionCardsPage = () => {
       });
     } catch {
       try {
-        const barcodeNumber = generateBarcodeNumber(studentId, studentCode, barcodeNum);
+        const barcodeNumber = generateBarcodeNumber(studentCode, barcodeNum, studentId);
         JsBarcode(ref, barcodeNumber, {
           format: 'CODE128',
           width: 1,
@@ -134,7 +134,7 @@ const SectionCardsPage = () => {
         students.forEach(student => {
           const refs = cardRefsMap.current.get(student.id);
           if (refs?.barcode) {
-            initializeBarcode(refs.barcode, student.id, student.student_code || undefined, student.barcode_number || undefined);
+            initializeBarcode(refs.barcode, student.student_code || undefined, student.barcode_number || undefined, student.id);
           }
         });
       }, 300);
@@ -331,16 +331,16 @@ const SectionCardsPage = () => {
                         
                         {/* Header */}
                         <div className="relative z-10 text-center py-2 px-4">
-                          <p style={{ fontSize: '8px', fontWeight: 500, color: 'rgba(255, 255, 255, 0.9)', letterSpacing: '0.5px' }}>
+                          <p style={{ fontSize: '8px', fontWeight: 500, color: 'rgba(255, 255, 255, 0.9)', letterSpacing: '0.5px', fontFamily: 'Arial, Tahoma, sans-serif' }}>
                             الجمهورية الجزائرية الديمقراطية الشعبية
                           </p>
-                          <p style={{ fontSize: '7px', color: 'rgba(255, 255, 255, 0.8)' }}>
+                          <p style={{ fontSize: '7px', color: 'rgba(255, 255, 255, 0.8)', fontFamily: 'Arial, Tahoma, sans-serif' }}>
                             وزارة التربية الوطنية
                           </p>
-                          <p style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff', marginTop: '2px', textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)' }}>
+                          <p style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff', marginTop: '2px', textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)', fontFamily: 'Arial, Tahoma, sans-serif' }}>
                             بطاقة حضور التلميذ
                           </p>
-                          <p style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)', marginTop: '1px' }}>
+                          <p style={{ fontSize: '8px', fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)', marginTop: '1px', fontFamily: 'Arial, Tahoma, sans-serif' }}>
                             ثانوية العربي عبد القادر
                           </p>
                         </div>
@@ -439,7 +439,7 @@ const SectionCardsPage = () => {
                               boxShadow: '0 4px 15px rgba(0, 0, 0, 0.15)'
                             }}>
                               <QRCodeSVG 
-                                value={student.barcode_number || student.student_code || student.id} 
+                                value={student.student_code || student.id} 
                                 size={65} 
                                 level="H"
                                 includeMargin={false}

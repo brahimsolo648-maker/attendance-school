@@ -56,14 +56,14 @@ const StudentCardPage = () => {
   const frontCardRef = useRef<HTMLDivElement>(null);
   const backCardRef = useRef<HTMLDivElement>(null);
 
-  const generateBarcodeNumber = useCallback((studentId: string, studentCode?: string, barcodeNum?: string): string => {
+  const generateBarcodeNumber = useCallback((studentCode?: string, barcodeNum?: string, studentId?: string): string => {
     if (barcodeNum) {
       return barcodeNum.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
     }
     if (studentCode) {
       return studentCode.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
     }
-    const hash = studentId.replace(/-/g, '').slice(0, 12);
+    const hash = (studentId || '').replace(/-/g, '').slice(0, 12);
     let numericHash = '';
     for (let i = 0; i < 12; i++) {
       const char = hash[i] || '0';
@@ -73,11 +73,11 @@ const StudentCardPage = () => {
     return numericHash;
   }, []);
 
-  const initializeBarcode = useCallback((ref: SVGSVGElement | null, studentId: string, studentCode?: string, barcodeNum?: string) => {
+  const initializeBarcode = useCallback((ref: SVGSVGElement | null, studentCode?: string, barcodeNum?: string, studentId?: string) => {
     if (!ref) return;
     
     try {
-      const barcodeNumber = generateBarcodeNumber(studentId, studentCode, barcodeNum);
+      const barcodeNumber = generateBarcodeNumber(studentCode, barcodeNum, studentId);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
         width: 1.2,
@@ -90,7 +90,7 @@ const StudentCardPage = () => {
       });
     } catch {
       try {
-        const barcodeNumber = generateBarcodeNumber(studentId, studentCode, barcodeNum);
+        const barcodeNumber = generateBarcodeNumber(studentCode, barcodeNum, studentId);
         JsBarcode(ref, barcodeNumber, {
           format: 'CODE128',
           width: 1,
@@ -110,7 +110,7 @@ const StudentCardPage = () => {
   useEffect(() => {
     if (studentData) {
       setTimeout(() => {
-        initializeBarcode(backBarcodeRef.current, studentData.id, studentData.student_code || undefined, studentData.barcode_number || undefined);
+        initializeBarcode(backBarcodeRef.current, studentData.student_code || undefined, studentData.barcode_number || undefined, studentData.id);
       }, 200);
     }
   }, [studentData, initializeBarcode]);
@@ -293,13 +293,15 @@ const StudentCardPage = () => {
                     fontSize: '8px', 
                     fontWeight: 500,
                     color: 'rgba(255, 255, 255, 0.9)',
-                    letterSpacing: '0.5px'
+                    letterSpacing: '0.5px',
+                    fontFamily: 'Arial, Tahoma, sans-serif'
                   }}>
                     الجمهورية الجزائرية الديمقراطية الشعبية
                   </p>
                   <p style={{ 
                     fontSize: '7px', 
                     color: 'rgba(255, 255, 255, 0.8)',
+                    fontFamily: 'Arial, Tahoma, sans-serif'
                   }}>
                     وزارة التربية الوطنية
                   </p>
@@ -308,7 +310,8 @@ const StudentCardPage = () => {
                     fontWeight: 700,
                     color: '#ffffff',
                     marginTop: '2px',
-                    textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
+                    textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                    fontFamily: 'Arial, Tahoma, sans-serif'
                   }}>
                     بطاقة حضور التلميذ
                   </p>
@@ -316,7 +319,8 @@ const StudentCardPage = () => {
                     fontSize: '8px', 
                     fontWeight: 600,
                     color: 'rgba(255, 255, 255, 0.9)',
-                    marginTop: '1px'
+                    marginTop: '1px',
+                    fontFamily: 'Arial, Tahoma, sans-serif'
                   }}>
                     ثانوية العربي عبد القادر
                   </p>
@@ -477,7 +481,7 @@ const StudentCardPage = () => {
                       boxShadow: '0 4px 15px rgba(0, 0, 0, 0.15)'
                     }}>
                       <QRCodeSVG 
-                        value={student.barcode_number || student.student_code || student.id} 
+                        value={student.student_code || student.id} 
                         size={65} 
                         level="H"
                         includeMargin={false}

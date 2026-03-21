@@ -50,14 +50,14 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
   const frontCardRef = useRef<HTMLDivElement>(null);
   const backCardRef = useRef<HTMLDivElement>(null);
 
-  const generateBarcodeNumber = useCallback((studentId: string, studentCode?: string, barcodeNum?: string): string => {
+  const generateBarcodeNumber = useCallback((studentCode?: string, barcodeNum?: string, studentId?: string): string => {
     if (barcodeNum) {
       return barcodeNum.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
     }
     if (studentCode) {
       return studentCode.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
     }
-    const hash = studentId.replace(/-/g, '').slice(0, 12);
+    const hash = (studentId || '').replace(/-/g, '').slice(0, 12);
     let numericHash = '';
     for (let i = 0; i < 12; i++) {
       const char = hash[i] || '0';
@@ -71,7 +71,7 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
     if (!ref) return;
     
     try {
-      const barcodeNumber = generateBarcodeNumber(studentData.id, studentData.student_code, studentData.barcode_number);
+      const barcodeNumber = generateBarcodeNumber(studentData.student_code, studentData.barcode_number, studentData.id);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
         width: 1.2,
@@ -84,7 +84,7 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
       });
     } catch {
       try {
-        const barcodeNumber = generateBarcodeNumber(studentData.id, studentData.student_code, studentData.barcode_number);
+        const barcodeNumber = generateBarcodeNumber(studentData.student_code, studentData.barcode_number, studentData.id);
         JsBarcode(ref, barcodeNumber, {
           format: 'CODE128',
           width: 1,
@@ -200,10 +200,10 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
                   color: 'white'
                 }}
               >
-                <p style={{ fontSize: '5px', fontWeight: 500, opacity: 0.85 }}>الجمهورية الجزائرية الديمقراطية الشعبية</p>
-                <p style={{ fontSize: '4.5px', opacity: 0.75 }}>وزارة التربية الوطنية</p>
-                <p style={{ fontSize: '9px', fontWeight: 700, margin: '1px 0' }}>بطاقة حضور التلميذ</p>
-                <p style={{ fontSize: '6px', fontWeight: 600, opacity: 0.9 }}>ثانوية العربي عبد القادر</p>
+                <p style={{ fontSize: '5px', fontWeight: 500, opacity: 0.85, fontFamily: 'Arial, Tahoma, sans-serif' }}>الجمهورية الجزائرية الديمقراطية الشعبية</p>
+                <p style={{ fontSize: '4.5px', opacity: 0.75, fontFamily: 'Arial, Tahoma, sans-serif' }}>وزارة التربية الوطنية</p>
+                <p style={{ fontSize: '9px', fontWeight: 700, margin: '1px 0', fontFamily: 'Arial, Tahoma, sans-serif' }}>بطاقة حضور التلميذ</p>
+                <p style={{ fontSize: '6px', fontWeight: 600, opacity: 0.9, fontFamily: 'Arial, Tahoma, sans-serif' }}>ثانوية العربي عبد القادر</p>
               </div>
 
               {/* Content */}
@@ -303,7 +303,7 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
                     }}
                   >
                     <QRCodeSVG 
-                      value={student.barcode_number || student.student_code || student.id} 
+                      value={student.student_code || student.id} 
                       size={55} 
                       level="H"
                       includeMargin={false}

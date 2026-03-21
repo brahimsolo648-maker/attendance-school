@@ -63,21 +63,22 @@ const QRScanner = () => {
   }, [scanType]);
 
   const processQRCode = useCallback(async (scannedData: string) => {
-    const studentId = scannedData.trim();
-    if (!studentId) return;
+    const scannedCode = scannedData.trim();
+    if (!scannedCode) return;
 
     const now = Date.now();
-    if (studentId === lastScannedRef.current && now - lastScanTimeRef.current < 2000) return;
-    lastScannedRef.current = studentId;
+    if (scannedCode === lastScannedRef.current && now - lastScanTimeRef.current < 2000) return;
+    lastScannedRef.current = scannedCode;
     lastScanTimeRef.current = now;
 
     setIsProcessing(true);
     
     try {
+      // Look up student by student_code
       const { data: student, error: studentError } = await supabase
         .from('students')
         .select('id, first_name, last_name, is_banned, ban_reason')
-        .eq('id', studentId)
+        .eq('student_code', scannedCode)
         .maybeSingle();
 
       if (studentError || !student) {
@@ -97,6 +98,7 @@ const QRScanner = () => {
       }
 
       const today = new Date().toISOString().split('T')[0];
+      const studentId = student.id;
 
       if (scanType === 'entry') {
         const { data: existingRecord } = await supabase
@@ -394,7 +396,7 @@ const QRScanner = () => {
               value={externalInput}
               onChange={(e) => setExternalInput(e.target.value)}
               onKeyDown={handleExternalInput}
-              placeholder="أدخل رقم الطالب"
+              placeholder="أدخل رمز التلميذ"
               className="flex-1 rounded-lg border border-border bg-background px-3 text-center text-sm h-9 focus:outline-none focus:ring-2 focus:ring-ring"
               autoFocus
             />

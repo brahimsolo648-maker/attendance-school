@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Plus, Calendar, Trash2, Eye, Hash, Printer } from 'lucide-react';
+import { ArrowRight, Plus, Calendar, Trash2, Eye, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,8 +29,6 @@ const ManageLists = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState<Date | undefined>();
-  const [studentCode, setStudentCode] = useState('');
-  
   const years = getYears();
   const { data: sectionsByYear } = useSectionsByYear(selectedYear);
   const { data: students, isLoading: studentsLoading } = useStudents(selectedSectionId);
@@ -46,25 +44,13 @@ const ManageLists = () => {
     setFirstName('');
     setLastName('');
     setBirthDate(undefined);
-    setStudentCode('');
   };
   
   const handleAddStudent = async () => {
-    if (!firstName.trim() || !lastName.trim() || !birthDate || !selectedSectionId || !studentCode.trim()) {
+    if (!firstName.trim() || !lastName.trim() || !birthDate || !selectedSectionId) {
       toast({
         title: 'خطأ',
-        description: 'يرجى ملء جميع الحقول المطلوبة (الاسم، اللقب، تاريخ الميلاد، رقم التعريف)',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Check if student code already exists
-    const existingStudent = students?.find(s => s.student_code === studentCode.trim());
-    if (existingStudent) {
-      toast({
-        title: 'خطأ',
-        description: 'رقم التعريف المدرسي مستخدم مسبقاً',
+        description: 'يرجى ملء جميع الحقول المطلوبة (الاسم، اللقب، تاريخ الميلاد)',
         variant: 'destructive',
       });
       return;
@@ -76,7 +62,6 @@ const ManageLists = () => {
         last_name: lastName.trim(),
         birth_date: format(birthDate, 'yyyy-MM-dd'),
         section_id: selectedSectionId,
-        student_code: studentCode.trim(),
       });
       
       toast({
@@ -197,7 +182,7 @@ const ManageLists = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-right w-12">#</TableHead>
-                      <TableHead className="text-right">رقم التعريف</TableHead>
+                      <TableHead className="text-right">رمز التلميذ</TableHead>
                       <TableHead className="text-right">الاسم</TableHead>
                       <TableHead className="text-right">اللقب</TableHead>
                       <TableHead className="text-right">تاريخ الميلاد</TableHead>
@@ -274,18 +259,6 @@ const ManageLists = () => {
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-foreground flex items-center gap-2">
-                <Hash className="w-4 h-4 text-primary" />
-                رقم التعريف المدرسي *
-              </Label>
-              <Input
-                value={studentCode}
-                onChange={(e) => setStudentCode(e.target.value)}
-                placeholder="أدخل رقم التعريف الفريد"
-                className="input-styled font-mono"
-              />
-            </div>
 
             <div className="space-y-2">
               <Label className="text-foreground">الاسم *</Label>
@@ -345,7 +318,7 @@ const ManageLists = () => {
             <Button 
               variant="gradient" 
               onClick={handleAddStudent}
-              disabled={createStudent.isPending || !firstName || !lastName || !birthDate || !studentCode}
+              disabled={createStudent.isPending || !firstName || !lastName || !birthDate}
             >
               {createStudent.isPending ? 'جاري الإضافة...' : 'إضافة تلميذ'}
             </Button>
