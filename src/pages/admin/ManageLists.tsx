@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Plus, Calendar, Trash2, Eye, Hash, Printer } from 'lucide-react';
+import { ArrowRight, Plus, Calendar, Trash2, Eye, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
