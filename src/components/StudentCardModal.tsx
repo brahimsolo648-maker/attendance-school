@@ -84,7 +84,7 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
       });
     } catch {
       try {
-        const barcodeNumber = generateBarcodeNumber(studentData.id, studentData.student_code, studentData.barcode_number);
+        const barcodeNumber = generateBarcodeNumber(studentData.student_code, studentData.barcode_number, studentData.id);
         JsBarcode(ref, barcodeNumber, {
           format: 'CODE128',
           width: 1,
