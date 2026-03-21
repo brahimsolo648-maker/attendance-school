@@ -29,8 +29,6 @@ const ManageLists = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState<Date | undefined>();
-  const [studentCode, setStudentCode] = useState('');
-  
   const years = getYears();
   const { data: sectionsByYear } = useSectionsByYear(selectedYear);
   const { data: students, isLoading: studentsLoading } = useStudents(selectedSectionId);
