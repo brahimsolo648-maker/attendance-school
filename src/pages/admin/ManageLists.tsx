@@ -330,7 +330,7 @@ const ManageLists = () => {
             <Button 
               variant="gradient" 
               onClick={handleAddStudent}
-              disabled={createStudent.isPending || !firstName || !lastName || !birthDate || !studentCode}
+              disabled={createStudent.isPending || !firstName || !lastName || !birthDate}
             >
               {createStudent.isPending ? 'جاري الإضافة...' : 'إضافة تلميذ'}
             </Button>

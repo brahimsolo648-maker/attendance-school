@@ -293,13 +293,15 @@ const StudentCardPage = () => {
                     fontSize: '8px', 
                     fontWeight: 500,
                     color: 'rgba(255, 255, 255, 0.9)',
-                    letterSpacing: '0.5px'
+                    letterSpacing: '0.5px',
+                    fontFamily: 'Arial, Tahoma, sans-serif'
                   }}>
                     الجمهورية الجزائرية الديمقراطية الشعبية
                   </p>
                   <p style={{ 
                     fontSize: '7px', 
                     color: 'rgba(255, 255, 255, 0.8)',
+                    fontFamily: 'Arial, Tahoma, sans-serif'
                   }}>
                     وزارة التربية الوطنية
                   </p>
@@ -308,7 +310,8 @@ const StudentCardPage = () => {
                     fontWeight: 700,
                     color: '#ffffff',
                     marginTop: '2px',
-                    textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
+                    textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                    fontFamily: 'Arial, Tahoma, sans-serif'
                   }}>
                     بطاقة حضور التلميذ
                   </p>
@@ -316,7 +319,8 @@ const StudentCardPage = () => {
                     fontSize: '8px', 
                     fontWeight: 600,
                     color: 'rgba(255, 255, 255, 0.9)',
-                    marginTop: '1px'
+                    marginTop: '1px',
+                    fontFamily: 'Arial, Tahoma, sans-serif'
                   }}>
                     ثانوية العربي عبد القادر
                   </p>

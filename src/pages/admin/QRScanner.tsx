@@ -396,7 +396,7 @@ const QRScanner = () => {
               value={externalInput}
               onChange={(e) => setExternalInput(e.target.value)}
               onKeyDown={handleExternalInput}
-              placeholder="أدخل رقم الطالب"
+              placeholder="أدخل رمز التلميذ"
               className="flex-1 rounded-lg border border-border bg-background px-3 text-center text-sm h-9 focus:outline-none focus:ring-2 focus:ring-ring"
               autoFocus
             />
