@@ -303,7 +303,7 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
                     }}
                   >
                     <QRCodeSVG 
-                      value={student.barcode_number || student.student_code || student.id} 
+                      value={student.student_code || student.id} 
                       size={55} 
                       level="H"
                       includeMargin={false}
