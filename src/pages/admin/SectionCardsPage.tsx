@@ -93,11 +93,11 @@ const SectionCardsPage = () => {
     return numericHash;
   }, []);
 
-  const initializeBarcode = useCallback((ref: SVGSVGElement | null, studentId: string, studentCode?: string, barcodeNum?: string) => {
+  const initializeBarcode = useCallback((ref: SVGSVGElement | null, studentCode?: string, barcodeNum?: string, studentId?: string) => {
     if (!ref) return;
     
     try {
-      const barcodeNumber = generateBarcodeNumber(studentId, studentCode, barcodeNum);
+      const barcodeNumber = generateBarcodeNumber(studentCode, barcodeNum, studentId);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
         width: 1.2,
