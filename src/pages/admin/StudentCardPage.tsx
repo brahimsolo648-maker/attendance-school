@@ -90,7 +90,7 @@ const StudentCardPage = () => {
       });
     } catch {
       try {
-        const barcodeNumber = generateBarcodeNumber(studentId, studentCode, barcodeNum);
+        const barcodeNumber = generateBarcodeNumber(studentCode, barcodeNum, studentId);
         JsBarcode(ref, barcodeNumber, {
           format: 'CODE128',
           width: 1,
