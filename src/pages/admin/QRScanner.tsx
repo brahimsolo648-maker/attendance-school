@@ -82,7 +82,7 @@ const QRScanner = () => {
 
       if (studentError || !student) {
         playSound('error');
-        setLastResult({ type: 'error', message: 'لم يتم العثور على التلميذ في النظام' });
+        setLastResult({ type: 'error', message: 'رمز غير صالح أو تلميذ غير موجود في النظام' });
         return;
       }
 
@@ -90,7 +90,7 @@ const QRScanner = () => {
         playSound('error');
         setLastResult({
           type: 'warning',
-          message: `⚠️ التلميذ ممنوع من الدخول: ${student.ban_reason || 'بدون سبب محدد'}`,
+          message: `التلميذ ممنوع من الدخول: ${student.ban_reason || 'بدون سبب محدد'}`,
           studentName: `${student.first_name} ${student.last_name}`
         });
         return;
@@ -124,7 +124,7 @@ const QRScanner = () => {
         }
 
         playSound('success');
-        setLastResult({ type: 'success', message: '✓ تم تسجيل الدخول بنجاح', studentName: `${student.first_name} ${student.last_name}` });
+        setLastResult({ type: 'success', message: 'تم تسجيل الدخول بنجاح', studentName: `${student.first_name} ${student.last_name}` });
       } else {
         const { data: existingRecord } = await supabase
           .from('attendance_records')
@@ -152,7 +152,7 @@ const QRScanner = () => {
 
         await supabase.from('attendance_records').update({ check_out_time: new Date().toISOString() }).eq('id', existingRecord.id);
         playSound('success');
-        setLastResult({ type: 'success', message: '✓ تم تسجيل الخروج بنجاح', studentName: `${student.first_name} ${student.last_name}` });
+        setLastResult({ type: 'success', message: 'تم تسجيل الخروج بنجاح', studentName: `${student.first_name} ${student.last_name}` });
       }
     } catch (error) {
       console.error('Error processing QR:', error);
@@ -165,7 +165,6 @@ const QRScanner = () => {
 
   const startScanning = useCallback(async () => {
     try {
-      // Clean up any existing scanner first
       if (scannerRef.current) {
         try { await scannerRef.current.stop(); } catch (e) {}
         scannerRef.current = null;
@@ -173,29 +172,41 @@ const QRScanner = () => {
 
       const readerEl = document.getElementById('qr-reader');
       if (!readerEl) return;
-
-      // Clear any leftover html5-qrcode DOM
       readerEl.innerHTML = '';
 
       const scanner = new Html5Qrcode('qr-reader');
       scannerRef.current = scanner;
 
-      // Calculate qrbox: fit within the container but leave margin
-      const containerWidth = readerEl.clientWidth;
-      const containerHeight = readerEl.clientHeight;
-      const qrSize = Math.floor(Math.min(containerWidth, containerHeight) * 0.7);
-      const evenQrSize = qrSize % 2 === 0 ? qrSize : qrSize - 1;
-
       await scanner.start(
         { facingMode },
         {
           fps: 15,
-          qrbox: { width: evenQrSize, height: evenQrSize },
-          disableFlip: false
+          qrbox: { width: 200, height: 200 },
+          disableFlip: false,
+          aspectRatio: 1
         },
         (decodedText) => processQRCode(decodedText),
         () => {}
       );
+
+      // Force hide the shaded region and fix video after scanner starts
+      setTimeout(() => {
+        const el = document.getElementById('qr-reader');
+        if (!el) return;
+        // Hide all shaded regions
+        el.querySelectorAll('[id*="shaded"]').forEach(n => (n as HTMLElement).style.display = 'none');
+        // Fix video element
+        const video = el.querySelector('video');
+        if (video) {
+          video.style.objectFit = 'cover';
+          video.style.width = '100%';
+          video.style.height = '100%';
+          video.style.position = 'absolute';
+          video.style.top = '0';
+          video.style.left = '0';
+        }
+      }, 300);
+
       setIsScanning(true);
     } catch (error) {
       console.error('Error starting scanner:', error);
@@ -216,7 +227,6 @@ const QRScanner = () => {
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   }, [stopScanning]);
 
-  // Auto-start camera on mount
   useEffect(() => {
     if (!autoStartRef.current) {
       autoStartRef.current = true;
@@ -230,7 +240,6 @@ const QRScanner = () => {
     };
   }, []);
 
-  // Restart on camera switch
   useEffect(() => {
     if (autoStartRef.current && !isScanning) startScanning();
   }, [facingMode]);
@@ -242,7 +251,6 @@ const QRScanner = () => {
     }
   }, [externalInput, processQRCode]);
 
-  // External scanner (USB barcode reader) support
   useEffect(() => {
     let buffer = '';
     let timeout: ReturnType<typeof setTimeout>;
@@ -262,12 +270,6 @@ const QRScanner = () => {
   }, [processQRCode]);
 
   const isEntry = scanType === 'entry';
-
-  const resultConfig = lastResult ? {
-    success: { icon: <CheckCircle className="w-8 h-8 text-green-500" />, bg: 'border-green-500/30 bg-green-500/10' },
-    error: { icon: <XCircle className="w-8 h-8 text-destructive" />, bg: 'border-destructive/30 bg-destructive/10' },
-    warning: { icon: <AlertTriangle className="w-8 h-8 text-yellow-500" />, bg: 'border-yellow-500/30 bg-yellow-500/10' },
-  }[lastResult.type] : null;
 
   return (
     <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
@@ -297,13 +299,26 @@ const QRScanner = () => {
         </div>
       </header>
 
-      {/* Camera - exactly 30% of viewport height */}
+      {/* Camera area - 30% of viewport, centered square */}
       <div className="shrink-0 relative bg-black flex items-center justify-center" style={{ height: '30dvh' }}>
-        <div 
-          id="qr-reader" 
-          className="w-full h-full [&>video]:!object-cover [&>video]:!w-full [&>video]:!h-full [&>video]:!max-h-none [&>video]:!max-w-none [&_#qr-shaded-region]:!border-none"
-          style={{ position: 'relative' }}
-        />
+        {/* Square camera container */}
+        <div className="relative h-full aspect-square overflow-hidden">
+          <div
+            id="qr-reader"
+            className="absolute inset-0 overflow-hidden"
+          />
+          {/* Corner frame overlay */}
+          <div className="absolute inset-0 pointer-events-none z-[5]">
+            {/* Top-left */}
+            <div className="absolute top-3 left-3 w-8 h-8 border-t-[3px] border-l-[3px] border-primary rounded-tl-md" />
+            {/* Top-right */}
+            <div className="absolute top-3 right-3 w-8 h-8 border-t-[3px] border-r-[3px] border-primary rounded-tr-md" />
+            {/* Bottom-left */}
+            <div className="absolute bottom-3 left-3 w-8 h-8 border-b-[3px] border-l-[3px] border-primary rounded-bl-md" />
+            {/* Bottom-right */}
+            <div className="absolute bottom-3 right-3 w-8 h-8 border-b-[3px] border-r-[3px] border-primary rounded-br-md" />
+          </div>
+        </div>
         
         {!isScanning && (
           <div className="absolute inset-0 flex items-center justify-center bg-muted/90">
@@ -316,7 +331,7 @@ const QRScanner = () => {
 
         {isProcessing && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
-            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
           </div>
         )}
 
@@ -337,18 +352,29 @@ const QRScanner = () => {
         </div>
       </div>
 
-      {/* Bottom panel - fills remaining space */}
+      {/* Bottom panel */}
       <div className="flex-1 overflow-auto p-3 space-y-3">
-        {/* Scan Result */}
-        {lastResult && resultConfig ? (
-          <div className={`rounded-xl p-3 border-2 ${resultConfig.bg}`}>
+        {lastResult ? (
+          <div className={`rounded-xl p-4 border-2 transition-all ${
+            lastResult.type === 'success' 
+              ? 'border-success/40 bg-success/10' 
+              : lastResult.type === 'warning'
+              ? 'border-warning/40 bg-warning/10'
+              : 'border-destructive/40 bg-destructive/10'
+          }`}>
             <div className="flex items-center gap-3">
-              {resultConfig.icon}
+              {lastResult.type === 'success' ? (
+                <CheckCircle className="w-8 h-8 shrink-0 text-success" />
+              ) : lastResult.type === 'warning' ? (
+                <AlertTriangle className="w-8 h-8 shrink-0 text-warning" />
+              ) : (
+                <XCircle className="w-8 h-8 shrink-0 text-destructive" />
+              )}
               <div className="flex-1 min-w-0">
                 {lastResult.studentName && (
                   <p className="font-bold text-foreground text-sm truncate">{lastResult.studentName}</p>
                 )}
-                <p className="text-xs text-muted-foreground">{lastResult.message}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{lastResult.message}</p>
               </div>
             </div>
           </div>
@@ -360,7 +386,6 @@ const QRScanner = () => {
           </div>
         )}
 
-        {/* Manual input */}
         {showExternalInput && (
           <div className="flex gap-2">
             <input
@@ -389,6 +414,39 @@ const QRScanner = () => {
           </div>
         )}
       </div>
+
+      {/* Global styles to fix html5-qrcode internals */}
+      <style>{`
+        #qr-reader {
+          position: relative !important;
+          width: 100% !important;
+          height: 100% !important;
+          border: none !important;
+        }
+        #qr-reader video {
+          object-fit: cover !important;
+          width: 100% !important;
+          height: 100% !important;
+          position: absolute !important;
+          top: 0 !important;
+          left: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+        }
+        #qr-reader img {
+          display: none !important;
+        }
+        #qr-reader br,
+        #qr-reader span {
+          display: none !important;
+        }
+        #qr-reader > div:not(:first-child) {
+          display: none !important;
+        }
+        [id*="qr-shaded-region"] {
+          display: none !important;
+        }
+      `}</style>
     </div>
   );
 };
