@@ -110,7 +110,7 @@ const StudentCardPage = () => {
   useEffect(() => {
     if (studentData) {
       setTimeout(() => {
-        initializeBarcode(backBarcodeRef.current, studentData.id, studentData.student_code || undefined, studentData.barcode_number || undefined);
+        initializeBarcode(backBarcodeRef.current, studentData.student_code || undefined, studentData.barcode_number || undefined, studentData.id);
       }, 200);
     }
   }, [studentData, initializeBarcode]);
