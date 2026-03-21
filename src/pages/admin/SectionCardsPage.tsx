@@ -134,7 +134,7 @@ const SectionCardsPage = () => {
         students.forEach(student => {
           const refs = cardRefsMap.current.get(student.id);
           if (refs?.barcode) {
-            initializeBarcode(refs.barcode, student.id, student.student_code || undefined, student.barcode_number || undefined);
+            initializeBarcode(refs.barcode, student.student_code || undefined, student.barcode_number || undefined, student.id);
           }
         });
       }, 300);
