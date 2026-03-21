@@ -477,7 +477,7 @@ const StudentCardPage = () => {
                       boxShadow: '0 4px 15px rgba(0, 0, 0, 0.15)'
                     }}>
                       <QRCodeSVG 
-                        value={student.barcode_number || student.student_code || student.id} 
+                        value={student.student_code || student.id} 
                         size={65} 
                         level="H"
                         includeMargin={false}
