@@ -71,7 +71,7 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
     if (!ref) return;
     
     try {
-      const barcodeNumber = generateBarcodeNumber(studentData.id, studentData.student_code, studentData.barcode_number);
+      const barcodeNumber = generateBarcodeNumber(studentData.student_code, studentData.barcode_number, studentData.id);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
         width: 1.2,
