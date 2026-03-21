@@ -47,21 +47,10 @@ const ManageLists = () => {
   };
   
   const handleAddStudent = async () => {
-    if (!firstName.trim() || !lastName.trim() || !birthDate || !selectedSectionId || !studentCode.trim()) {
+    if (!firstName.trim() || !lastName.trim() || !birthDate || !selectedSectionId) {
       toast({
         title: 'خطأ',
-        description: 'يرجى ملء جميع الحقول المطلوبة (الاسم، اللقب، تاريخ الميلاد، رقم التعريف)',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Check if student code already exists
-    const existingStudent = students?.find(s => s.student_code === studentCode.trim());
-    if (existingStudent) {
-      toast({
-        title: 'خطأ',
-        description: 'رقم التعريف المدرسي مستخدم مسبقاً',
+        description: 'يرجى ملء جميع الحقول المطلوبة (الاسم، اللقب، تاريخ الميلاد)',
         variant: 'destructive',
       });
       return;
@@ -73,7 +62,6 @@ const ManageLists = () => {
         last_name: lastName.trim(),
         birth_date: format(birthDate, 'yyyy-MM-dd'),
         section_id: selectedSectionId,
-        student_code: studentCode.trim(),
       });
       
       toast({
