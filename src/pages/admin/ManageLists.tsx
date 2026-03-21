@@ -259,18 +259,6 @@ const ManageLists = () => {
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-foreground flex items-center gap-2">
-                <Hash className="w-4 h-4 text-primary" />
-                رقم التعريف المدرسي *
-              </Label>
-              <Input
-                value={studentCode}
-                onChange={(e) => setStudentCode(e.target.value)}
-                placeholder="أدخل رقم التعريف الفريد"
-                className="input-styled font-mono"
-              />
-            </div>
 
             <div className="space-y-2">
               <Label className="text-foreground">الاسم *</Label>
