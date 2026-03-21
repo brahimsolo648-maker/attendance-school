@@ -98,6 +98,7 @@ const QRScanner = () => {
       }
 
       const today = new Date().toISOString().split('T')[0];
+      const studentId = student.id;
 
       if (scanType === 'entry') {
         const { data: existingRecord } = await supabase
