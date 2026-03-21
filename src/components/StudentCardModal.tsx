@@ -50,14 +50,14 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
   const frontCardRef = useRef<HTMLDivElement>(null);
   const backCardRef = useRef<HTMLDivElement>(null);
 
-  const generateBarcodeNumber = useCallback((studentId: string, studentCode?: string, barcodeNum?: string): string => {
+  const generateBarcodeNumber = useCallback((studentCode?: string, barcodeNum?: string, studentId?: string): string => {
     if (barcodeNum) {
       return barcodeNum.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
     }
     if (studentCode) {
       return studentCode.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
     }
-    const hash = studentId.replace(/-/g, '').slice(0, 12);
+    const hash = (studentId || '').replace(/-/g, '').slice(0, 12);
     let numericHash = '';
     for (let i = 0; i < 12; i++) {
       const char = hash[i] || '0';
