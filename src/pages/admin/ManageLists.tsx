@@ -44,7 +44,6 @@ const ManageLists = () => {
     setFirstName('');
     setLastName('');
     setBirthDate(undefined);
-    setStudentCode('');
   };
   
   const handleAddStudent = async () => {
