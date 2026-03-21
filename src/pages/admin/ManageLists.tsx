@@ -182,7 +182,7 @@ const ManageLists = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-right w-12">#</TableHead>
-                      <TableHead className="text-right">رقم التعريف</TableHead>
+                      <TableHead className="text-right">رمز التلميذ</TableHead>
                       <TableHead className="text-right">الاسم</TableHead>
                       <TableHead className="text-right">اللقب</TableHead>
                       <TableHead className="text-right">تاريخ الميلاد</TableHead>
