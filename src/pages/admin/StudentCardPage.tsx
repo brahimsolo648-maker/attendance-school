@@ -294,7 +294,7 @@ const StudentCardPage = () => {
                     fontWeight: 500,
                     color: 'rgba(255, 255, 255, 0.9)',
                     letterSpacing: '0.5px',
-                    fontFamily: 'Arial, Tahoma, sans-serif'
+                    fontFamily: 'Tahoma, Arial, sans-serif'
                   }}>
                     الجمهورية الجزائرية الديمقراطية الشعبية
                   </p>
