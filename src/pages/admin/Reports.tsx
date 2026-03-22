@@ -217,7 +217,8 @@ const Reports = () => {
             <ArrowRight className="w-5 h-5 ml-2" />
             العودة
           </Button>
-          <h1 className="text-lg font-bold text-foreground">التقارير</h1>
+          <h1 className="text-lg font-bold text-foreground">التقارير اليومية</h1>
+          <p className="text-xs text-muted-foreground">تعرض غيابات اليوم فقط - الأيام السابقة في الأرشيف</p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleExportPDF}>
               <FileDown className="w-4 h-4 ml-2" />
