@@ -301,7 +301,7 @@ const StudentCardPage = () => {
                   <p style={{ 
                     fontSize: '7px', 
                     color: 'rgba(255, 255, 255, 0.8)',
-                    fontFamily: 'Arial, Tahoma, sans-serif'
+                    fontFamily: 'Tahoma, Arial, sans-serif'
                   }}>
                     وزارة التربية الوطنية
                   </p>
