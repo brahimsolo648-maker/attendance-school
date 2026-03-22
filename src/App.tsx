@@ -32,6 +32,7 @@ import DailyAttendance from "./pages/admin/DailyAttendance";
 import Statistics from "./pages/admin/Statistics";
 import Archive from "./pages/admin/Archive";
 import UploadLists from "./pages/admin/UploadLists";
+import NotificationsPage from "./pages/admin/NotificationsPage";
 
 const queryClient = new QueryClient();
 
@@ -140,6 +141,11 @@ const App = () => (
             <Route path="/admin/upload-lists" element={
               <ProtectedRoute requiredRole="admin">
                 <UploadLists />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/notifications" element={
+              <ProtectedRoute requiredRole="admin">
+                <NotificationsPage />
               </ProtectedRoute>
             } />
 

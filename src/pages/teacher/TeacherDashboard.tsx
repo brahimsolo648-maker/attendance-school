@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, LogOut, Users, CheckCircle, Loader2, FileText } from 'lucide-react';
+import { LogOut, Users, CheckCircle, Loader2, FileText, Home, Send, Settings, Undo2, Clock, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import ThemeToggle from '@/components/ThemeToggle';
 import SignaturePad from '@/components/SignaturePad';
@@ -13,6 +14,9 @@ import { useStudents } from '@/hooks/useStudents';
 import { useSections } from '@/hooks/useSections';
 import { useSubmitAbsenceList } from '@/hooks/useAbsence';
 import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { ar } from 'date-fns/locale';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface TeacherData {
   id: string;
@@ -32,10 +36,13 @@ interface StudentNote {
   note: string;
 }
 
+type TabType = 'home' | 'sent' | 'settings';
+
 const TeacherDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [showSettings, setShowSettings] = useState(false);
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<TabType>('home');
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [absentStudentIds, setAbsentStudentIds] = useState<string[]>([]);
   const [studentNotes, setStudentNotes] = useState<StudentNote[]>([]);
@@ -98,6 +105,33 @@ const TeacherDashboard = () => {
 
     fetchData();
   }, [navigate]);
+
+  // Fetch sent lists for today
+  const { data: sentLists = [], isLoading: loadingSentLists } = useQuery({
+    queryKey: ['teacher-sent-lists', teacherData?.id],
+    queryFn: async () => {
+      if (!teacherData?.id) return [];
+      
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      
+      const { data, error } = await supabase
+        .from('absence_lists')
+        .select(`
+          id, submitted_at, subject, section_id,
+          sections(full_name),
+          absence_records(id, student_id, students(id, first_name, last_name))
+        `)
+        .eq('teacher_id', teacherData.id)
+        .gte('submitted_at', todayStart.toISOString())
+        .order('submitted_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!teacherData?.id,
+    refetchInterval: 30000, // Refresh every 30s
+  });
 
   const teacherSections = allSections?.filter(
     section => teacherSectionIds.includes(section.id)
@@ -222,8 +256,8 @@ const TeacherDashboard = () => {
       setSelectedSectionId(null);
       setAbsentStudentIds([]);
       setStudentNotes([]);
-      // Reset signature for next submission - require fresh signature each time
       setSignatureDataUrl(null);
+      queryClient.invalidateQueries({ queryKey: ['teacher-sent-lists'] });
     } catch (error: any) {
       console.error('Error submitting absence list:', error);
       
@@ -248,7 +282,6 @@ const TeacherDashboard = () => {
     setSelectedSectionId(sectionId);
     setAbsentStudentIds([]);
     setStudentNotes([]);
-    // Reset signature for each new list
     setSignatureDataUrl(null);
   };
 
@@ -257,6 +290,65 @@ const TeacherDashboard = () => {
     setAbsentStudentIds([]);
     setStudentNotes([]);
     setSignatureDataUrl(null);
+  };
+
+  // Revoke helpers
+  const isWithin60Min = (submittedAt: string) => {
+    const submitted = new Date(submittedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - submitted.getTime();
+    return diffMs <= 60 * 60 * 1000; // 60 minutes
+  };
+
+  const getTimeRemaining = (submittedAt: string) => {
+    const submitted = new Date(submittedAt);
+    const deadline = new Date(submitted.getTime() + 60 * 60 * 1000);
+    const now = new Date();
+    const remainMs = deadline.getTime() - now.getTime();
+    if (remainMs <= 0) return null;
+    const mins = Math.floor(remainMs / 60000);
+    return `${mins} دقيقة`;
+  };
+
+  const handleRevokeStudent = async (absenceRecordId: string, listId: string) => {
+    try {
+      const { error } = await supabase
+        .from('absence_records')
+        .delete()
+        .eq('id', absenceRecordId);
+      
+      if (error) throw error;
+      
+      toast({ title: 'تم التراجع', description: 'تم إلغاء غياب التلميذ بنجاح' });
+      queryClient.invalidateQueries({ queryKey: ['teacher-sent-lists'] });
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'فشل في إلغاء الغياب', variant: 'destructive' });
+    }
+  };
+
+  const handleRevokeList = async (listId: string) => {
+    try {
+      // Delete all absence records for this list first
+      const { error: recordsError } = await supabase
+        .from('absence_records')
+        .delete()
+        .eq('absence_list_id', listId);
+      
+      if (recordsError) throw recordsError;
+
+      // Then delete the list itself
+      const { error: listError } = await supabase
+        .from('absence_lists')
+        .delete()
+        .eq('id', listId);
+      
+      if (listError) throw listError;
+      
+      toast({ title: 'تم التراجع', description: 'تم إلغاء القائمة بالكامل' });
+      queryClient.invalidateQueries({ queryKey: ['teacher-sent-lists'] });
+    } catch (error) {
+      toast({ title: 'خطأ', description: 'فشل في إلغاء القائمة', variant: 'destructive' });
+    }
   };
 
   if (isLoadingTeacher) {
@@ -290,17 +382,14 @@ const TeacherDashboard = () => {
   const selectedSection = teacherSections.find(s => s.id === selectedSectionId);
 
   return (
-    <div className="page-container min-h-screen">
+    <div className="page-container min-h-screen pb-20">
       {/* Header */}
       <header className="glass-nav">
         <div className="content-container flex items-center justify-between h-16">
-          {/* Left - Settings */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowSettings(!showSettings)}
-          >
-            <Settings className="w-5 h-5" />
+          {/* Left - Logout */}
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
+            <LogOut className="w-4 h-4 ml-2" />
+            خروج
           </Button>
 
           {/* Center - Teacher name with avatar */}
@@ -316,83 +405,229 @@ const TeacherDashboard = () => {
             </Avatar>
           </div>
 
-          {/* Right - Logout */}
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 ml-2" />
-            خروج
-          </Button>
+          <div className="w-16" />
         </div>
       </header>
 
-      {/* Settings Panel */}
-      {showSettings && (
-        <div className="animate-slide-up border-b border-border bg-card/50">
-          <div className="content-container py-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">الوضع الليلي/النهاري</span>
-              <ThemeToggle />
+      {/* Tab Content */}
+      <main className="content-container py-6">
+        {/* HOME TAB */}
+        {activeTab === 'home' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
+                <Users className="w-6 h-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-foreground">الأقسام التي أدرسها</h2>
+                <p className="text-sm text-muted-foreground">المادة: {teacherData.subject}</p>
+              </div>
             </div>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate('/teacher/settings')}
-            >
-              تغيير معلومات الحساب
-            </Button>
-          </div>
-        </div>
-      )}
 
-      {/* Main Content */}
-      <main className="content-container py-8">
-        <div className="space-y-6">
-          {/* Section Header */}
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
-              <Users className="w-6 h-6 text-primary-foreground" />
+            {teacherSections.length === 0 ? (
+              <div className="glass-card p-8 text-center">
+                <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">لم تحدد الإدارة أقسامك بعد</h3>
+                <p className="text-muted-foreground">سيتم تعيين الأقسام من قبل الإدارة قريباً</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {teacherSections.map((section) => (
+                  <button
+                    key={section.id}
+                    onClick={() => openSectionDialog(section.id)}
+                    className="glass-card p-5 text-right hover:border-primary/50 transition-all group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                        <Users className="w-6 h-6 text-primary" />
+                      </div>
+                      <div className="flex-1 mr-4">
+                        <span className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors block">
+                          {section.full_name}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          السنة: {section.year}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SENT LISTS TAB */}
+        {activeTab === 'sent' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
+                <Send className="w-6 h-6 text-accent-foreground" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-foreground">القوائم المرسلة اليوم</h2>
+                <p className="text-sm text-muted-foreground">يمكنك التراجع خلال 60 دقيقة من الإرسال</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">الأقسام التي أدرسها</h2>
-              <p className="text-sm text-muted-foreground">المادة: {teacherData.subject}</p>
+
+            {loadingSentLists ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : sentLists.length === 0 ? (
+              <div className="glass-card p-8 text-center">
+                <Send className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">لا توجد قوائم مرسلة اليوم</h3>
+                <p className="text-muted-foreground">القوائم المرسلة ستظهر هنا حتى منتصف الليل</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {sentLists.map((list: any) => {
+                  const canRevoke = isWithin60Min(list.submitted_at);
+                  const remaining = getTimeRemaining(list.submitted_at);
+                  const absentStudents = list.absence_records || [];
+
+                  return (
+                    <div key={list.id} className="glass-card p-4 space-y-3">
+                      {/* List Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {canRevoke ? (
+                            <Badge variant="outline" className="text-xs border-amber-400 text-amber-600 dark:text-amber-400">
+                              <Clock className="w-3 h-3 ml-1" />
+                              متبقي {remaining}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              للقراءة فقط
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-foreground">
+                            {(list as any).sections?.full_name || 'قسم'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(list.submitted_at), 'HH:mm', { locale: ar })} - {list.subject}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Absent Students */}
+                      {absentStudents.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-2">لا يوجد غائبون (قائمة حضور كامل)</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {absentStudents.map((record: any) => (
+                            <div key={record.id} className="flex items-center justify-between p-2 rounded-lg bg-destructive/5 border border-destructive/10">
+                              <div>
+                                {canRevoke && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-destructive hover:text-destructive h-7 px-2"
+                                    onClick={() => handleRevokeStudent(record.id, list.id)}
+                                  >
+                                    <Undo2 className="w-3.5 h-3.5 ml-1" />
+                                    تراجع
+                                  </Button>
+                                )}
+                              </div>
+                              <span className="text-sm font-medium text-foreground">
+                                {record.students?.last_name} {record.students?.first_name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Revoke entire list */}
+                      {canRevoke && absentStudents.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-destructive/30 text-destructive hover:bg-destructive/10"
+                          onClick={() => handleRevokeList(list.id)}
+                        >
+                          <Trash2 className="w-4 h-4 ml-2" />
+                          إلغاء القائمة بالكامل
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SETTINGS TAB */}
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center">
+                <Settings className="w-6 h-6 text-foreground" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-foreground">الإعدادات</h2>
+              </div>
+            </div>
+
+            <div className="glass-card p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <ThemeToggle />
+                <span className="text-sm font-medium text-foreground">الوضع الليلي/النهاري</span>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate('/teacher/settings')}
+              >
+                تغيير معلومات الحساب
+              </Button>
             </div>
           </div>
-
-          {/* Sections Grid */}
-          {teacherSections.length === 0 ? (
-            <div className="glass-card p-8 text-center">
-              <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">لم تحدد الإدارة أقسامك بعد</h3>
-              <p className="text-muted-foreground">
-                سيتم تعيين الأقسام من قبل الإدارة قريباً
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {teacherSections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => openSectionDialog(section.id)}
-                  className="glass-card p-5 text-right hover:border-primary/50 transition-all group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Users className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="flex-1 mr-4">
-                      <span className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors block">
-                        {section.full_name}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        السنة: {section.year}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </main>
+
+      {/* Bottom Navigation Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border shadow-lg">
+        <div className="flex items-center justify-around h-16">
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors ${
+              activeTab === 'settings' ? 'text-primary' : 'text-muted-foreground'
+            }`}
+          >
+            <Settings className="w-5 h-5" />
+            <span className="text-[10px] font-medium">الإعدادات</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('sent')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors relative ${
+              activeTab === 'sent' ? 'text-primary' : 'text-muted-foreground'
+            }`}
+          >
+            <Send className="w-5 h-5" />
+            <span className="text-[10px] font-medium">القوائم المرسلة</span>
+            {sentLists.length > 0 && (
+              <span className="absolute top-1 right-2 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] flex items-center justify-center">
+                {sentLists.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('home')}
+            className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors ${
+              activeTab === 'home' ? 'text-primary' : 'text-muted-foreground'
+            }`}
+          >
+            <Home className="w-5 h-5" />
+            <span className="text-[10px] font-medium">الرئيسية</span>
+          </button>
+        </div>
+      </nav>
 
       {/* Absence List Dialog */}
       <Dialog open={!!selectedSectionId} onOpenChange={closeSectionDialog}>
@@ -405,7 +640,6 @@ const TeacherDashboard = () => {
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto py-4 space-y-4">
-            {/* Students List */}
             {studentsLoading ? (
               <div className="flex items-center justify-center p-8">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />

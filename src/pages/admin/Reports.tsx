@@ -66,7 +66,11 @@ const Reports = () => {
     }
   });
 
-  // Process: aggregate per student
+  // Today's date string for filtering
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  // Process: aggregate per student - only show today's absences (daily view)
+  // Past days auto-move to archive (they simply don't appear here)
   const studentsReport = useMemo(() => {
     const studentMap: Record<string, {
       id: string;
@@ -76,6 +80,7 @@ const Reports = () => {
       is_banned: boolean;
       absenceDates: Set<string>;
       absenceDatesList: string[];
+      todayAbsent: boolean;
     }> = {};
 
     absenceRecords.forEach((record: any) => {
@@ -92,12 +97,17 @@ const Reports = () => {
           is_banned: student.is_banned,
           absenceDates: new Set(),
           absenceDatesList: [],
+          todayAbsent: false,
         };
       }
 
       if (!studentMap[student.id].absenceDates.has(dateStr)) {
         studentMap[student.id].absenceDates.add(dateStr);
         studentMap[student.id].absenceDatesList.push(dateStr);
+      }
+
+      if (dateStr === todayStr) {
+        studentMap[student.id].todayAbsent = true;
       }
     });
 
@@ -109,9 +119,9 @@ const Reports = () => {
         sectionName: sections.find(sec => sec.id === s.section_id)?.full_name || '',
         sectionYear: sections.find(sec => sec.id === s.section_id)?.year || '',
       }))
-      .filter(s => s.absenceDays > 0)
+      .filter(s => s.todayAbsent) // Only show students absent TODAY
       .sort((a, b) => b.absenceDays - a.absenceDays);
-  }, [absenceRecords, sections]);
+  }, [absenceRecords, sections, todayStr]);
 
   const handlePrint = () => {
     window.print();
@@ -207,7 +217,8 @@ const Reports = () => {
             <ArrowRight className="w-5 h-5 ml-2" />
             العودة
           </Button>
-          <h1 className="text-lg font-bold text-foreground">التقارير</h1>
+          <h1 className="text-lg font-bold text-foreground">التقارير اليومية</h1>
+          <p className="text-xs text-muted-foreground">تعرض غيابات اليوم فقط - الأيام السابقة في الأرشيف</p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleExportPDF}>
               <FileDown className="w-4 h-4 ml-2" />
