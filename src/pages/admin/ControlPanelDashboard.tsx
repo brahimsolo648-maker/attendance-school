@@ -1,14 +1,12 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, ArrowLeft, Bell, UserCheck, FileText, FolderOpen, Archive, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { usePendingTeachersCount } from '@/hooks/useTeachers';
-import NotificationsModal from '@/components/NotificationsModal';
+
 const ControlPanelDashboard = () => {
   const navigate = useNavigate();
   const { data: pendingCount } = usePendingTeachersCount();
-  const [showNotifications, setShowNotifications] = useState(false);
 
   const mainActions = [
     {
@@ -68,7 +66,7 @@ const ControlPanelDashboard = () => {
               variant="ghost"
               size="icon"
               className="relative"
-              onClick={() => setShowNotifications(true)}
+              onClick={() => navigate('/admin/notifications')}
             >
               <Bell className="w-5 h-5" />
               <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center text-xs bg-destructive">
@@ -123,12 +121,6 @@ const ControlPanelDashboard = () => {
           ))}
         </div>
       </main>
-
-      {/* Notifications Modal */}
-      <NotificationsModal 
-        open={showNotifications} 
-        onOpenChange={setShowNotifications} 
-      />
     </div>
   );
 };

@@ -143,6 +143,11 @@ const App = () => (
                 <UploadLists />
               </ProtectedRoute>
             } />
+            <Route path="/admin/notifications" element={
+              <ProtectedRoute requiredRole="admin">
+                <NotificationsPage />
+              </ProtectedRoute>
+            } />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
