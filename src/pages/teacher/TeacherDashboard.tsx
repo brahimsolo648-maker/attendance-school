@@ -133,6 +133,24 @@ const TeacherDashboard = () => {
     refetchInterval: 30000, // Refresh every 30s
   });
 
+  // Fetch gate statuses for selected section students
+  const today = new Date().toISOString().split('T')[0];
+  const { data: gateStatuses = [] } = useQuery({
+    queryKey: ['gate-statuses', selectedSectionId, today],
+    queryFn: async () => {
+      if (!selectedSectionId) return [];
+      const { data, error } = await supabase
+        .from('daily_student_status')
+        .select('student_id, gate_status')
+        .eq('date', today)
+        .in('gate_status', ['tardy', 'absent']);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedSectionId,
+  });
+
   const teacherSections = allSections?.filter(
     section => teacherSectionIds.includes(section.id)
   ) || [];
