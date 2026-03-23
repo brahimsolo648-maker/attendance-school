@@ -17,6 +17,13 @@ const ControlPanelDashboard = () => {
       color: 'text-primary'
     },
     {
+      icon: UserX,
+      label: 'الغيابات والتأخرات',
+      description: 'مراقبة الغياب والتأخر والتغيب',
+      path: '/admin/absences',
+      color: 'text-destructive'
+    },
+    {
       icon: FolderOpen,
       label: 'عرض/إدارة القوائم',
       description: 'إدارة قوائم الطلاب والأقسام',

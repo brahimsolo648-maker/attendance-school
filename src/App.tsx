@@ -149,6 +149,11 @@ const App = () => (
                 <NotificationsPage />
               </ProtectedRoute>
             } />
+            <Route path="/admin/absences" element={
+              <ProtectedRoute requiredRole="admin">
+                <AbsencesAndTardiness />
+              </ProtectedRoute>
+            } />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
