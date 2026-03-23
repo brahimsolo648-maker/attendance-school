@@ -33,6 +33,7 @@ import Statistics from "./pages/admin/Statistics";
 import Archive from "./pages/admin/Archive";
 import UploadLists from "./pages/admin/UploadLists";
 import NotificationsPage from "./pages/admin/NotificationsPage";
+import AbsencesAndTardiness from "./pages/admin/AbsencesAndTardiness";
 
 const queryClient = new QueryClient();
 
