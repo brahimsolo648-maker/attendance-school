@@ -200,8 +200,8 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
                   color: 'white'
                 }}
               >
-                <p style={{ fontSize: '6px', fontWeight: 500, opacity: 0.85, fontFamily: 'Tahoma, Arial, sans-serif', letterSpacing: '0.3px' }}>الجمهورية الجزائرية الديمقراطية الشعبية</p>
-                <p style={{ fontSize: '5px', opacity: 0.75, fontFamily: 'Tahoma, Arial, sans-serif', letterSpacing: '0.3px' }}>وزارة التربية الوطنية</p>
+                <p style={{ fontSize: '6px', fontWeight: 500, opacity: 0.85, fontFamily: 'Tahoma, Arial, sans-serif' }}>الجمهورية الجزائرية الديمقراطية الشعبية</p>
+                <p style={{ fontSize: '5px', opacity: 0.75, fontFamily: 'Tahoma, Arial, sans-serif' }}>وزارة التربية الوطنية</p>
                 <p style={{ fontSize: '9px', fontWeight: 700, margin: '1px 0', fontFamily: 'Tahoma, Arial, sans-serif' }}>بطاقة حضور التلميذ</p>
                 <p style={{ fontSize: '6px', fontWeight: 600, opacity: 0.9, fontFamily: 'Tahoma, Arial, sans-serif' }}>ثانوية العربي عبد القادر</p>
               </div>
