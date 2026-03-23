@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Settings, ArrowLeft, Bell, UserCheck, FileText, FolderOpen, Archive, Upload } from 'lucide-react';
+import { Settings, ArrowLeft, Bell, UserCheck, FileText, FolderOpen, Archive, Upload, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { usePendingTeachersCount } from '@/hooks/useTeachers';
