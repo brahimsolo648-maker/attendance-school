@@ -331,7 +331,7 @@ const SectionCardsPage = () => {
                         
                         {/* Header */}
                         <div className="relative z-10 text-center py-2 px-4">
-                          <p style={{ fontSize: '8px', fontWeight: 500, color: 'rgba(255, 255, 255, 0.9)', letterSpacing: '0.5px', fontFamily: 'Tahoma, Arial, sans-serif' }}>
+                          <p style={{ fontSize: '8px', fontWeight: 500, color: 'rgba(255, 255, 255, 0.9)', fontFamily: 'Tahoma, Arial, sans-serif' }}>
                             الجمهورية الجزائرية الديمقراطية الشعبية
                           </p>
                           <p style={{ fontSize: '7px', color: 'rgba(255, 255, 255, 0.8)', fontFamily: 'Tahoma, Arial, sans-serif' }}>

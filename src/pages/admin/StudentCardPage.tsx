@@ -293,7 +293,6 @@ const StudentCardPage = () => {
                     fontSize: '8px', 
                     fontWeight: 500,
                     color: 'rgba(255, 255, 255, 0.9)',
-                    letterSpacing: '0.5px',
                     fontFamily: 'Tahoma, Arial, sans-serif'
                   }}>
                     الجمهورية الجزائرية الديمقراطية الشعبية
