@@ -655,6 +655,8 @@ const TeacherDashboard = () => {
                 
                 {students.map((student) => {
                   const isAbsent = absentStudentIds.includes(student.id);
+                  const gateInfo = gateStatuses.find(g => g.student_id === student.id);
+                  const gateStatus = gateInfo?.gate_status;
                   
                   return (
                     <div
@@ -674,9 +676,23 @@ const TeacherDashboard = () => {
                           />
                           <span className="text-sm text-muted-foreground">غائب</span>
                         </div>
-                        <span className="font-medium text-foreground">
-                          {student.last_name} {student.first_name}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {/* Gate status badge */}
+                          {gateStatus === 'tardy' && (
+                            <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px]">
+                              <Clock className="w-3 h-3 ml-0.5" />
+                              متأخر
+                            </Badge>
+                          )}
+                          {gateStatus === 'absent' && (
+                            <Badge variant="destructive" className="text-[10px]">
+                              غائب (بوابة)
+                            </Badge>
+                          )}
+                          <span className="font-medium text-foreground">
+                            {student.last_name} {student.first_name}
+                          </span>
+                        </div>
                       </div>
                       
                       {isAbsent && (
