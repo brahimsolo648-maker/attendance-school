@@ -94,27 +94,36 @@ export type Database = {
       }
       attendance_records: {
         Row: {
+          access_allowed: boolean | null
           check_in_time: string | null
           check_out_time: string | null
           created_at: string
           date: string
+          gate_status: string | null
           id: string
+          is_truant: boolean | null
           student_id: string
         }
         Insert: {
+          access_allowed?: boolean | null
           check_in_time?: string | null
           check_out_time?: string | null
           created_at?: string
           date?: string
+          gate_status?: string | null
           id?: string
+          is_truant?: boolean | null
           student_id: string
         }
         Update: {
+          access_allowed?: boolean | null
           check_in_time?: string | null
           check_out_time?: string | null
           created_at?: string
           date?: string
+          gate_status?: string | null
           id?: string
+          is_truant?: boolean | null
           student_id?: string
         }
         Relationships: [
@@ -168,6 +177,56 @@ export type Database = {
           user_type?: string | null
         }
         Relationships: []
+      }
+      daily_student_status: {
+        Row: {
+          access_allowed: boolean
+          created_at: string
+          date: string
+          gate_status: string
+          id: string
+          is_truant: boolean
+          missed_sessions: number
+          reporting_teachers: string[] | null
+          student_id: string
+          teacher_status: string
+          updated_at: string
+        }
+        Insert: {
+          access_allowed?: boolean
+          created_at?: string
+          date?: string
+          gate_status?: string
+          id?: string
+          is_truant?: boolean
+          missed_sessions?: number
+          reporting_teachers?: string[] | null
+          student_id: string
+          teacher_status?: string
+          updated_at?: string
+        }
+        Update: {
+          access_allowed?: boolean
+          created_at?: string
+          date?: string
+          gate_status?: string
+          id?: string
+          is_truant?: boolean
+          missed_sessions?: number
+          reporting_teachers?: string[] | null
+          student_id?: string
+          teacher_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_student_status_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       import_history: {
         Row: {
