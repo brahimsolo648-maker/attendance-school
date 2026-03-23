@@ -105,6 +105,59 @@ export const useSubmitAbsenceList = () => {
           .insert(absenceRecords);
         
         if (recordsError) throw recordsError;
+
+        // Get teacher name for reporting_teachers
+        const { data: teacher } = await supabase
+          .from('teachers')
+          .select('first_name, last_name')
+          .eq('id', teacherId)
+          .single();
+        
+        const teacherName = teacher ? `${teacher.last_name} ${teacher.first_name}` : '';
+        const today = new Date().toISOString().split('T')[0];
+
+        // Reconciliation: Update daily_student_status for each absent student
+        for (const studentId of absentStudentIds) {
+          const { data: existing } = await supabase
+            .from('daily_student_status')
+            .select('id, gate_status, missed_sessions, reporting_teachers')
+            .eq('student_id', studentId)
+            .eq('date', today)
+            .maybeSingle();
+
+          if (existing) {
+            // Student has a gate record
+            const isTruant = existing.gate_status === 'present'; // Present at gate but absent in class
+            const newTeachers = existing.reporting_teachers || [];
+            if (teacherName && !newTeachers.includes(teacherName)) {
+              newTeachers.push(teacherName);
+            }
+
+            await supabase
+              .from('daily_student_status')
+              .update({
+                teacher_status: 'absent',
+                is_truant: isTruant || existing.gate_status === 'present',
+                missed_sessions: (existing.missed_sessions || 0) + 1,
+                reporting_teachers: newTeachers,
+              })
+              .eq('id', existing.id);
+          } else {
+            // No gate record - student didn't scan at all (absent from gate too)
+            await supabase
+              .from('daily_student_status')
+              .insert({
+                student_id: studentId,
+                date: today,
+                gate_status: 'absent',
+                teacher_status: 'absent',
+                is_truant: false,
+                access_allowed: false,
+                missed_sessions: 1,
+                reporting_teachers: teacherName ? [teacherName] : [],
+              });
+          }
+        }
       }
       
       return absenceList;
@@ -112,6 +165,9 @@ export const useSubmitAbsenceList = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['absence-records'] });
       queryClient.invalidateQueries({ queryKey: ['absence-days'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-student-status'] });
+      queryClient.invalidateQueries({ queryKey: ['truant-students'] });
+      queryClient.invalidateQueries({ queryKey: ['gate-statuses'] });
     },
   });
 };

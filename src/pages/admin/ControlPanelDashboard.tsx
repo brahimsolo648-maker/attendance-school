@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Settings, ArrowLeft, Bell, UserCheck, FileText, FolderOpen, Archive, Upload } from 'lucide-react';
+import { Settings, ArrowLeft, Bell, UserCheck, FileText, FolderOpen, Archive, Upload, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { usePendingTeachersCount } from '@/hooks/useTeachers';
@@ -15,6 +15,13 @@ const ControlPanelDashboard = () => {
       description: 'عرض وإنشاء التقارير',
       path: '/admin/reports',
       color: 'text-primary'
+    },
+    {
+      icon: UserX,
+      label: 'الغيابات والتأخرات',
+      description: 'مراقبة الغياب والتأخر والتغيب',
+      path: '/admin/absences',
+      color: 'text-destructive'
     },
     {
       icon: FolderOpen,

@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, Camera, CameraOff, CheckCircle, XCircle, AlertTriangle, RotateCcw, Keyboard } from 'lucide-react';
+import { ArrowRight, Camera, CameraOff, CheckCircle, XCircle, AlertTriangle, RotateCcw, Keyboard, ShieldX, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Html5Qrcode } from 'html5-qrcode';
+import { useQuery } from '@tanstack/react-query';
 
 type ScanResult = {
-  type: 'success' | 'error' | 'warning';
+  type: 'success' | 'error' | 'warning' | 'denied';
   message: string;
   studentName?: string;
 };
@@ -23,6 +24,7 @@ const QRScanner = () => {
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [externalInput, setExternalInput] = useState('');
   const [showExternalInput, setShowExternalInput] = useState(false);
+  const [scanSessionActive, setScanSessionActive] = useState(false);
   
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScannedRef = useRef<string>('');
@@ -30,7 +32,44 @@ const QRScanner = () => {
   const externalInputRef = useRef<HTMLInputElement>(null);
   const autoStartRef = useRef(false);
 
-  const playSound = useCallback((type: 'success' | 'error') => {
+  // Fetch cutoff time settings
+  const { data: settings } = useQuery({
+    queryKey: ['cutoff-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('setting_key, setting_value')
+        .in('setting_key', ['tardy_cutoff_time', 'absent_cutoff_time']);
+      
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      data?.forEach(s => { map[s.setting_key] = s.setting_value || ''; });
+      return {
+        tardyCutoff: map['tardy_cutoff_time'] || '08:15',
+        absentCutoff: map['absent_cutoff_time'] || '08:45',
+      };
+    },
+  });
+
+  const getGateStatus = useCallback((): 'present' | 'tardy' | 'absent' => {
+    if (!settings) return 'present';
+    
+    const now = new Date();
+    const [tardyH, tardyM] = settings.tardyCutoff.split(':').map(Number);
+    const [absentH, absentM] = settings.absentCutoff.split(':').map(Number);
+    
+    const tardyTime = new Date(now);
+    tardyTime.setHours(tardyH, tardyM, 0, 0);
+    
+    const absentTime = new Date(now);
+    absentTime.setHours(absentH, absentM, 0, 0);
+    
+    if (now < tardyTime) return 'present';
+    if (now < absentTime) return 'tardy';
+    return 'absent';
+  }, [settings]);
+
+  const playSound = useCallback((type: 'success' | 'error' | 'denied') => {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
@@ -48,6 +87,10 @@ const QRScanner = () => {
           oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.1);
           oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
         }
+      } else if (type === 'denied') {
+        oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(150, audioContext.currentTime + 0.2);
+        oscillator.frequency.setValueAtTime(200, audioContext.currentTime + 0.4);
       } else {
         oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
         oscillator.frequency.setValueAtTime(200, audioContext.currentTime + 0.15);
@@ -74,7 +117,6 @@ const QRScanner = () => {
     setIsProcessing(true);
     
     try {
-      // Look up student by student_code
       const { data: student, error: studentError } = await supabase
         .from('students')
         .select('id, first_name, last_name, is_banned, ban_reason')
@@ -101,6 +143,24 @@ const QRScanner = () => {
       const studentId = student.id;
 
       if (scanType === 'entry') {
+        // Check if student has access denied in daily_student_status
+        const { data: dailyStatus } = await supabase
+          .from('daily_student_status')
+          .select('id, access_allowed, gate_status')
+          .eq('student_id', studentId)
+          .eq('date', today)
+          .maybeSingle();
+
+        if (dailyStatus && !dailyStatus.access_allowed) {
+          playSound('denied');
+          setLastResult({
+            type: 'denied',
+            message: 'الدخول مرفوض - يجب مراجعة الإدارة أولاً',
+            studentName: `${student.first_name} ${student.last_name}`
+          });
+          return;
+        }
+
         const { data: existingRecord } = await supabase
           .from('attendance_records')
           .select('id, check_in_time')
@@ -119,15 +179,64 @@ const QRScanner = () => {
           return;
         }
 
+        // Determine gate status based on time
+        const gateStatus = getGateStatus();
+
         if (existingRecord) {
-          await supabase.from('attendance_records').update({ check_in_time: new Date().toISOString() }).eq('id', existingRecord.id);
+          await supabase.from('attendance_records')
+            .update({ check_in_time: new Date().toISOString(), gate_status: gateStatus })
+            .eq('id', existingRecord.id);
         } else {
-          await supabase.from('attendance_records').insert({ student_id: studentId, date: today, check_in_time: new Date().toISOString() });
+          await supabase.from('attendance_records')
+            .insert({ student_id: studentId, date: today, check_in_time: new Date().toISOString(), gate_status: gateStatus });
         }
 
-        playSound('success');
-        setLastResult({ type: 'success', message: 'تم تسجيل الدخول بنجاح', studentName: `${student.first_name} ${student.last_name}` });
+        // Upsert daily_student_status
+        if (gateStatus === 'tardy' || gateStatus === 'absent') {
+          const accessAllowed = gateStatus === 'tardy'; // Tardy can enter, absent cannot by default
+          
+          if (dailyStatus) {
+            await supabase.from('daily_student_status')
+              .update({ gate_status: gateStatus, access_allowed: accessAllowed })
+              .eq('id', dailyStatus.id);
+          } else {
+            await supabase.from('daily_student_status')
+              .insert({ student_id: studentId, date: today, gate_status: gateStatus, access_allowed: accessAllowed });
+          }
+        } else {
+          // Present - update or create with present status
+          if (dailyStatus) {
+            await supabase.from('daily_student_status')
+              .update({ gate_status: 'present', access_allowed: true })
+              .eq('id', dailyStatus.id);
+          } else {
+            await supabase.from('daily_student_status')
+              .insert({ student_id: studentId, date: today, gate_status: 'present', access_allowed: true });
+          }
+        }
+
+        const statusLabel = gateStatus === 'present' ? 'حاضر' : gateStatus === 'tardy' ? 'متأخر' : 'غائب';
+        
+        if (gateStatus === 'present') {
+          playSound('success');
+          setLastResult({ type: 'success', message: 'تم تسجيل الدخول بنجاح ✅', studentName: `${student.first_name} ${student.last_name}` });
+        } else if (gateStatus === 'tardy') {
+          playSound('success');
+          setLastResult({ 
+            type: 'warning', 
+            message: `تم تسجيل الدخول - حالة: ${statusLabel} ⏰`, 
+            studentName: `${student.first_name} ${student.last_name}` 
+          });
+        } else {
+          playSound('denied');
+          setLastResult({ 
+            type: 'denied', 
+            message: `تم التسجيل كغائب - الدخول مرفوض 🚫`, 
+            studentName: `${student.first_name} ${student.last_name}` 
+          });
+        }
       } else {
+        // Exit scan - same as before
         const { data: existingRecord } = await supabase
           .from('attendance_records')
           .select('id, check_in_time, check_out_time')
@@ -163,7 +272,7 @@ const QRScanner = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [scanType, playSound]);
+  }, [scanType, playSound, getGateStatus]);
 
   const startScanning = useCallback(async () => {
     try {
@@ -191,13 +300,10 @@ const QRScanner = () => {
         () => {}
       );
 
-      // Force hide the shaded region and fix video after scanner starts
       setTimeout(() => {
         const el = document.getElementById('qr-reader');
         if (!el) return;
-        // Hide all shaded regions
         el.querySelectorAll('[id*="shaded"]').forEach(n => (n as HTMLElement).style.display = 'none');
-        // Fix video element
         const video = el.querySelector('video');
         if (video) {
           video.style.objectFit = 'cover';
@@ -210,6 +316,7 @@ const QRScanner = () => {
       }, 300);
 
       setIsScanning(true);
+      setScanSessionActive(true);
     } catch (error) {
       console.error('Error starting scanner:', error);
       toast.error('فشل في تشغيل الكاميرا. تأكد من السماح بالوصول للكاميرا');
@@ -273,6 +380,24 @@ const QRScanner = () => {
 
   const isEntry = scanType === 'entry';
 
+  const getResultStyles = (type: string) => {
+    switch (type) {
+      case 'success': return 'border-success/40 bg-success/10';
+      case 'warning': return 'border-amber-400/40 bg-amber-500/10';
+      case 'denied': return 'border-destructive/40 bg-destructive/10';
+      default: return 'border-destructive/40 bg-destructive/10';
+    }
+  };
+
+  const getResultIcon = (type: string) => {
+    switch (type) {
+      case 'success': return <CheckCircle className="w-8 h-8 shrink-0 text-success" />;
+      case 'warning': return <Clock className="w-8 h-8 shrink-0 text-amber-500" />;
+      case 'denied': return <ShieldX className="w-8 h-8 shrink-0 text-destructive" />;
+      default: return <XCircle className="w-8 h-8 shrink-0 text-destructive" />;
+    }
+  };
+
   return (
     <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
       {/* Header */}
@@ -282,9 +407,16 @@ const QRScanner = () => {
             <ArrowRight className="w-4 h-4" />
             <span className="text-sm">العودة</span>
           </Button>
-          <h1 className="text-sm font-bold text-foreground">
-            {isEntry ? '📥 تسجيل الدخول' : '📤 تسجيل الخروج'}
-          </h1>
+          <div className="text-center">
+            <h1 className="text-sm font-bold text-foreground">
+              {isEntry ? '📥 تسجيل الدخول' : '📤 تسجيل الخروج'}
+            </h1>
+            {settings && isEntry && (
+              <p className="text-[10px] text-muted-foreground">
+                تأخر: {settings.tardyCutoff} | غياب: {settings.absentCutoff}
+              </p>
+            )}
+          </div>
           <div className="flex gap-1">
             {isScanning && (
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={switchCamera}>
@@ -301,23 +433,14 @@ const QRScanner = () => {
         </div>
       </header>
 
-      {/* Camera area - 30% of viewport, centered square */}
+      {/* Camera area */}
       <div className="shrink-0 relative bg-black flex items-center justify-center" style={{ height: '40dvh' }}>
-        {/* Square camera container */}
         <div className="relative h-full aspect-square overflow-hidden">
-          <div
-            id="qr-reader"
-            className="absolute inset-0 overflow-hidden"
-          />
-          {/* Corner frame overlay */}
+          <div id="qr-reader" className="absolute inset-0 overflow-hidden" />
           <div className="absolute inset-0 pointer-events-none z-[5]">
-            {/* Top-left */}
             <div className="absolute top-3 left-3 w-8 h-8 border-t-[3px] border-l-[3px] border-primary rounded-tl-md" />
-            {/* Top-right */}
             <div className="absolute top-3 right-3 w-8 h-8 border-t-[3px] border-r-[3px] border-primary rounded-tr-md" />
-            {/* Bottom-left */}
             <div className="absolute bottom-3 left-3 w-8 h-8 border-b-[3px] border-l-[3px] border-primary rounded-bl-md" />
-            {/* Bottom-right */}
             <div className="absolute bottom-3 right-3 w-8 h-8 border-b-[3px] border-r-[3px] border-primary rounded-br-md" />
           </div>
         </div>
@@ -337,7 +460,6 @@ const QRScanner = () => {
           </div>
         )}
 
-        {/* Camera toggle */}
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10">
           <Button
             variant={isScanning ? 'destructive' : 'default'}
@@ -348,7 +470,7 @@ const QRScanner = () => {
             {isScanning ? (
               <><CameraOff className="w-3.5 h-3.5" /><span>إيقاف</span></>
             ) : (
-              <><Camera className="w-3.5 h-3.5" /><span>تشغيل</span></>
+              <><Camera className="w-3.5 h-3.5" /><span>بدء المسح</span></>
             )}
           </Button>
         </div>
@@ -357,21 +479,9 @@ const QRScanner = () => {
       {/* Bottom panel */}
       <div className="flex-1 overflow-auto p-3 space-y-3">
         {lastResult ? (
-          <div className={`rounded-xl p-4 border-2 transition-all ${
-            lastResult.type === 'success' 
-              ? 'border-success/40 bg-success/10' 
-              : lastResult.type === 'warning'
-              ? 'border-warning/40 bg-warning/10'
-              : 'border-destructive/40 bg-destructive/10'
-          }`}>
+          <div className={`rounded-xl p-4 border-2 transition-all ${getResultStyles(lastResult.type)}`}>
             <div className="flex items-center gap-3">
-              {lastResult.type === 'success' ? (
-                <CheckCircle className="w-8 h-8 shrink-0 text-success" />
-              ) : lastResult.type === 'warning' ? (
-                <AlertTriangle className="w-8 h-8 shrink-0 text-warning" />
-              ) : (
-                <XCircle className="w-8 h-8 shrink-0 text-destructive" />
-              )}
+              {getResultIcon(lastResult.type)}
               <div className="flex-1 min-w-0">
                 {lastResult.studentName && (
                   <p className="font-bold text-foreground text-sm truncate">{lastResult.studentName}</p>
@@ -417,7 +527,6 @@ const QRScanner = () => {
         )}
       </div>
 
-      {/* Global styles to fix html5-qrcode internals */}
       <style>{`
         #qr-reader {
           position: relative !important;
