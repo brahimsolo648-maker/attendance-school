@@ -28,33 +28,9 @@ const ProtectedRoute = ({
   });
   const isMounted = useRef(true);
 
-  const checkRole = useCallback(async (userId: string): Promise<boolean> => {
-    try {
-      if (requiredRole === 'any') {
-        const { data } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', userId)
-          .maybeSingle();
-        return !!data;
-      } else {
-        const { data } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', userId)
-          .eq('role', requiredRole)
-          .maybeSingle();
-        return !!data;
-      }
-    } catch {
-      return false;
-    }
-  }, [requiredRole]);
-
   useEffect(() => {
     isMounted.current = true;
 
-    // If we have cached auth, use it immediately and verify in background
     if (cachedAuth) {
       const hasRole = requiredRole === 'any' 
         ? cachedAuth.roles.length > 0 
@@ -62,7 +38,6 @@ const ProtectedRoute = ({
       setIsAuthenticated(true);
       setHasRequiredRole(hasRole);
       setIsLoading(false);
-      // Background verify - don't show loading
       return;
     }
 
@@ -80,7 +55,6 @@ const ProtectedRoute = ({
           return;
         }
 
-        // Fetch all roles at once for caching
         const { data: rolesData } = await supabase
           .from('user_roles')
           .select('role')
@@ -118,7 +92,6 @@ const ProtectedRoute = ({
             setIsLoading(false);
           }
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          // Invalidate cache and re-check
           cachedAuth = null;
           checkAuth();
         }
@@ -129,14 +102,11 @@ const ProtectedRoute = ({
       isMounted.current = false;
       subscription.unsubscribe();
     };
-  }, [requiredRole, checkRole]);
+  }, [requiredRole]);
 
+  // No loading screen — render nothing briefly while checking
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return null;
   }
 
   if (!isAuthenticated) {
