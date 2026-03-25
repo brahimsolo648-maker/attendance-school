@@ -63,6 +63,11 @@ const App = () => (
                 <TeacherSettings />
               </ProtectedRoute>
             } />
+            <Route path="/teacher/class/:sectionId" element={
+              <ProtectedRoute requiredRole="teacher" redirectTo="/teacher/auth">
+                <TeacherClassPage />
+              </ProtectedRoute>
+            } />
 
             {/* Admin Routes - Public Login */}
             <Route path="/admin/login" element={<AdminLogin />} />
