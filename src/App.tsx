@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 import TeacherAuth from "./pages/teacher/TeacherAuth";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import TeacherSettings from "./pages/teacher/TeacherSettings";
+import TeacherClassPage from "./pages/teacher/TeacherClassPage";
 
 // Admin Pages
 import AdminLogin from "./pages/admin/AdminLogin";
@@ -60,6 +61,11 @@ const App = () => (
             <Route path="/teacher/settings" element={
               <ProtectedRoute requiredRole="teacher" redirectTo="/teacher/auth">
                 <TeacherSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/teacher/class/:sectionId" element={
+              <ProtectedRoute requiredRole="teacher" redirectTo="/teacher/auth">
+                <TeacherClassPage />
               </ProtectedRoute>
             } />
 
