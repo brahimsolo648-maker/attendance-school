@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, UserCheck, Bell, Settings, FileText, FolderOpen, Archive, Upload, UserX, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+
 import { usePendingTeachersCount } from '@/hooks/useTeachers';
 import AccountRequests from './AccountRequests';
 import NotificationsPage from './NotificationsPage';
