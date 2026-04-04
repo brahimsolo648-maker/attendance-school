@@ -86,13 +86,14 @@ const StudentCardPage = () => {
       const barcodeNumber = generateBarcodeNumber(studentCode, barcodeNum, studentId);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
-        width: 1.2,
-        height: 32,
+        width: 1,
+        height: 30,
         displayValue: true,
-        fontSize: 8,
-        margin: 2,
+        fontSize: 7,
+        margin: 1,
         background: '#ffffff',
-        lineColor: '#1e3a5f'
+        lineColor: '#1e3a5f',
+        flat: true
       });
     } catch {
       try {
