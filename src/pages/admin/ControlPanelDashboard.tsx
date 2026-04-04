@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, UserCheck, Bell, Settings, FileText, FolderOpen, Archive, Upload, UserX, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+
 import { usePendingTeachersCount } from '@/hooks/useTeachers';
 import AccountRequests from './AccountRequests';
 import NotificationsPage from './NotificationsPage';
@@ -37,21 +37,21 @@ const ControlPanelDashboard = () => {
             <h1 className="text-lg font-bold text-foreground">لوحة التحكم</h1>
           </div>
 
-          <main className="content-container py-3">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-w-2xl mx-auto">
+          <main className="content-container py-3 flex items-center justify-center" style={{ minHeight: 'calc(100dvh - 120px)' }}>
+            <div className="grid grid-cols-2 gap-3 w-full max-w-md mx-auto">
               {mainActions.map((action) => (
                 <button
                   key={action.label}
                   onClick={() => navigate(action.path)}
-                  className="card-elevated p-3 sm:p-4 text-right hover:border-primary transition-all group"
+                  className="card-elevated p-4 text-center hover:border-primary border-2 border-border transition-all group active:scale-[0.97]"
                 >
-                  <div className={`w-9 h-9 rounded-lg bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform mb-2 ${action.color}`}>
-                    <action.icon className="w-4.5 h-4.5" />
+                  <div className={`w-11 h-11 rounded-xl bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform mx-auto mb-2 ${action.color}`}>
+                    <action.icon className="w-5 h-5" />
                   </div>
-                  <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors leading-tight">
+                  <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
                     {action.label}
                   </h3>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                  <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
                     {action.description}
                   </p>
                 </button>
@@ -80,7 +80,7 @@ const ControlPanelDashboard = () => {
       )}
 
       {/* Bottom Navigation Bar - 4 tabs */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-border">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t-2 border-border">
         <div className="flex items-center justify-around h-14 max-w-lg mx-auto">
           <button
             onClick={() => setActiveTab('settings')}
