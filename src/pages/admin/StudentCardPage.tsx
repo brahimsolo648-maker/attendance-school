@@ -469,7 +469,7 @@ const StudentCardPage = () => {
                     fontWeight: 700,
                     color: '#ffffff',
                     textShadow: '0 1px 4px rgba(0, 0, 0, 0.15)',
-                    letterSpacing: '0.5px'
+                    fontFamily: 'Tahoma, Arial, sans-serif'
                   }}>
                     رموز التعريف الإلكتروني
                   </p>
