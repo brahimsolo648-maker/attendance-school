@@ -117,11 +117,29 @@ const QRScanner = () => {
     setIsProcessing(true);
     
     try {
-      const { data: student, error: studentError } = await supabase
+      // Try student_code first, then barcode_number
+      let student = null;
+      let studentError = null;
+      
+      const { data: s1, error: e1 } = await supabase
         .from('students')
         .select('id, first_name, last_name, is_banned, ban_reason')
         .eq('student_code', scannedCode)
         .maybeSingle();
+      
+      student = s1;
+      studentError = e1;
+      
+      // If not found by student_code, try barcode_number
+      if (!student && !studentError) {
+        const { data: s2, error: e2 } = await supabase
+          .from('students')
+          .select('id, first_name, last_name, is_banned, ban_reason')
+          .eq('barcode_number', scannedCode.slice(0, 13))
+          .maybeSingle();
+        student = s2;
+        studentError = e2;
+      }
 
       if (studentError || !student) {
         playSound('error');
