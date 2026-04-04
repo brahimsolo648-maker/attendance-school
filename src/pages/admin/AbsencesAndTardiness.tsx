@@ -14,25 +14,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-interface DailyStatus {
+interface DisplayStudent {
   id: string;
+  statusId: string | null;
   student_id: string;
-  date: string;
+  first_name: string;
+  last_name: string;
+  section_name: string;
   gate_status: string;
   teacher_status: string;
   is_truant: boolean;
   access_allowed: boolean;
   missed_sessions: number;
   reporting_teachers: string[];
-  students: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    section_id: string;
-    sections: {
-      full_name: string;
-    };
-  };
 }
 
 const AbsencesAndTardiness = () => {
@@ -43,67 +37,190 @@ const AbsencesAndTardiness = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Fetch all students who are tardy, absent, or truant today
-  const { data: allStatuses = [], isLoading } = useQuery({
-    queryKey: ['absences-tardiness-page', today],
+  // Fetch cutoff settings
+  const { data: settings } = useQuery({
+    queryKey: ['cutoff-settings-absences'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('setting_key, setting_value')
+        .in('setting_key', ['tardy_cutoff_time', 'absent_cutoff_time']);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      data?.forEach(s => { map[s.setting_key] = s.setting_value || ''; });
+      return {
+        tardyCutoff: map['tardy_cutoff_time'] || '08:15',
+        absentCutoff: map['absent_cutoff_time'] || '08:45',
+      };
+    },
+  });
+
+  // Determine if we're past cutoff times
+  const timeStatus = useMemo(() => {
+    if (!settings) return { pastTardy: false, pastAbsent: false };
+    const now = new Date();
+    const [tardyH, tardyM] = settings.tardyCutoff.split(':').map(Number);
+    const [absentH, absentM] = settings.absentCutoff.split(':').map(Number);
+    const tardyTime = new Date(now); tardyTime.setHours(tardyH, tardyM, 0, 0);
+    const absentTime = new Date(now); absentTime.setHours(absentH, absentM, 0, 0);
+    return { pastTardy: now >= tardyTime, pastAbsent: now >= absentTime };
+  }, [settings]);
+
+  // Fetch daily_student_status records
+  const { data: dailyStatuses = [] } = useQuery({
+    queryKey: ['absences-daily-status', today],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('daily_student_status')
         .select(`
           id, student_id, date, gate_status, teacher_status, is_truant, 
-          access_allowed, missed_sessions, reporting_teachers,
-          students(id, first_name, last_name, section_id, sections(full_name))
+          access_allowed, missed_sessions, reporting_teachers
         `)
-        .eq('date', today)
-        .or('gate_status.in.(tardy,absent),is_truant.eq.true');
-
+        .eq('date', today);
       if (error) throw error;
-      return (data || []) as unknown as DailyStatus[];
+      return data || [];
     },
     refetchInterval: 10000,
   });
 
-  // Only show students who haven't been allowed entry yet
-  const visibleStatuses = useMemo(() => {
-    return allStatuses.filter(s => !s.access_allowed || s.is_truant);
-  }, [allStatuses]);
+  // Fetch ALL students with their sections
+  const { data: allStudents = [], isLoading: studentsLoading } = useQuery({
+    queryKey: ['all-students-for-absences'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, first_name, last_name, section_id, sections(full_name)')
+        .order('last_name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch attendance records to know who checked in
+  const { data: attendanceRecords = [] } = useQuery({
+    queryKey: ['attendance-records-today', today],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('attendance_records')
+        .select('student_id, check_in_time, gate_status')
+        .eq('date', today);
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 10000,
+  });
+
+  // Build the combined list
+  const displayList: DisplayStudent[] = useMemo(() => {
+    const statusMap = new Map<string, typeof dailyStatuses[0]>();
+    dailyStatuses.forEach(s => statusMap.set(s.student_id, s));
+
+    const checkedInSet = new Set(attendanceRecords.filter(r => r.check_in_time).map(r => r.student_id));
+
+    const result: DisplayStudent[] = [];
+
+    // 1) Students with daily_student_status records (tardy, absent, truant)
+    for (const status of dailyStatuses) {
+      if (status.gate_status === 'tardy' || status.gate_status === 'absent' || status.is_truant) {
+        if (!status.access_allowed || status.is_truant) {
+          const student = allStudents.find(s => s.id === status.student_id);
+          if (student) {
+            result.push({
+              id: status.id,
+              statusId: status.id,
+              student_id: status.student_id,
+              first_name: student.first_name,
+              last_name: student.last_name,
+              section_name: (student as any).sections?.full_name || '-',
+              gate_status: status.gate_status,
+              teacher_status: status.teacher_status,
+              is_truant: status.is_truant,
+              access_allowed: status.access_allowed,
+              missed_sessions: status.missed_sessions || 0,
+              reporting_teachers: status.reporting_teachers || [],
+            });
+          }
+        }
+      }
+    }
+
+    // 2) Students who never scanned AND we're past the absent cutoff
+    if (timeStatus.pastAbsent) {
+      const alreadyInList = new Set(result.map(r => r.student_id));
+      for (const student of allStudents) {
+        if (alreadyInList.has(student.id)) continue;
+        if (checkedInSet.has(student.id)) continue;
+        if (statusMap.has(student.id)) continue; // already has a status record
+
+        result.push({
+          id: `auto-${student.id}`,
+          statusId: null,
+          student_id: student.id,
+          first_name: student.first_name,
+          last_name: student.last_name,
+          section_name: (student as any).sections?.full_name || '-',
+          gate_status: 'absent',
+          teacher_status: 'present',
+          is_truant: false,
+          access_allowed: false,
+          missed_sessions: 0,
+          reporting_teachers: [],
+        });
+      }
+    }
+
+    return result;
+  }, [dailyStatuses, allStudents, attendanceRecords, timeStatus]);
 
   const filtered = useMemo(() => {
-    if (!searchQuery.trim()) return visibleStatuses;
+    if (!searchQuery.trim()) return displayList;
     const q = searchQuery.trim().toLowerCase();
-    return visibleStatuses.filter(s => {
-      const name = `${s.students?.first_name} ${s.students?.last_name}`.toLowerCase();
-      const section = s.students?.sections?.full_name?.toLowerCase() || '';
-      return name.includes(q) || section.includes(q);
+    return displayList.filter(s => {
+      const name = `${s.first_name} ${s.last_name}`.toLowerCase();
+      return name.includes(q) || s.section_name.toLowerCase().includes(q);
     });
-  }, [visibleStatuses, searchQuery]);
+  }, [displayList, searchQuery]);
 
-  const allowEntry = async (status: DailyStatus) => {
+  const allowEntry = async (student: DisplayStudent) => {
     try {
-      // Update daily_student_status: allow access, mark as present at gate
-      const { error } = await supabase
-        .from('daily_student_status')
-        .update({ access_allowed: true, gate_status: 'present' })
-        .eq('id', status.id);
-
-      if (error) throw error;
+      if (student.statusId) {
+        // Update existing daily_student_status
+        const { error } = await supabase
+          .from('daily_student_status')
+          .update({ access_allowed: true, gate_status: 'present' })
+          .eq('id', student.statusId);
+        if (error) throw error;
+      } else {
+        // Create a daily_student_status record with access_allowed = true
+        const { error } = await supabase
+          .from('daily_student_status')
+          .insert({
+            student_id: student.student_id,
+            date: today,
+            gate_status: 'present',
+            access_allowed: true,
+          });
+        if (error) throw error;
+      }
 
       // Update attendance_records too
       await supabase
         .from('attendance_records')
         .update({ gate_status: 'present', access_allowed: true })
-        .eq('student_id', status.student_id)
+        .eq('student_id', student.student_id)
         .eq('date', today);
 
       toast.success('تم السماح بالدخول');
+      queryClient.invalidateQueries({ queryKey: ['absences-daily-status'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-records-today'] });
       queryClient.invalidateQueries({ queryKey: ['absences-tardiness-page'] });
     } catch {
       toast.error('حدث خطأ أثناء تحديث الحالة');
     }
   };
 
-  const getStatusBadge = (status: DailyStatus) => {
-    if (status.is_truant) {
+  const getStatusBadge = (student: DisplayStudent) => {
+    if (student.is_truant) {
       return (
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-destructive animate-pulse" />
@@ -111,10 +228,10 @@ const AbsencesAndTardiness = () => {
         </div>
       );
     }
-    if (status.gate_status === 'tardy') {
+    if (student.gate_status === 'tardy') {
       return <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px]">متأخر</Badge>;
     }
-    if (status.gate_status === 'absent') {
+    if (student.gate_status === 'absent') {
       return <Badge variant="destructive" className="text-[10px]">غائب</Badge>;
     }
     return null;
@@ -132,11 +249,10 @@ const AbsencesAndTardiness = () => {
     }
 
     let rows = '';
-    filtered.forEach((status, i) => {
-      const name = `${status.students?.last_name} ${status.students?.first_name}`;
-      const section = status.students?.sections?.full_name || '-';
-      const label = status.is_truant ? 'تغيب عن حصة' : status.gate_status === 'tardy' ? 'متأخر' : 'غائب';
-      rows += `<tr><td>${i + 1}</td><td>${name}</td><td>${section}</td><td>${label}</td></tr>`;
+    filtered.forEach((student, i) => {
+      const name = `${student.last_name} ${student.first_name}`;
+      const label = student.is_truant ? 'تغيب عن حصة' : student.gate_status === 'tardy' ? 'متأخر' : 'غائب';
+      rows += `<tr><td>${i + 1}</td><td>${name}</td><td>${student.section_name}</td><td>${label}</td></tr>`;
     });
 
     printWindow.document.write(`
@@ -172,6 +288,8 @@ const AbsencesAndTardiness = () => {
     `);
     printWindow.document.close();
   };
+
+  const isLoading = studentsLoading;
 
   return (
     <div className="page-container min-h-screen" dir="rtl">
@@ -210,6 +328,14 @@ const AbsencesAndTardiness = () => {
       </header>
 
       <main className="content-container py-6 space-y-4">
+        {/* Time info */}
+        {settings && (
+          <div className="text-xs text-muted-foreground text-center print:hidden">
+            تأخر بعد: {settings.tardyCutoff} | غياب بعد: {settings.absentCutoff}
+            {timeStatus.pastAbsent && <span className="text-destructive mr-2">• تجاوز وقت الغياب</span>}
+          </div>
+        )}
+
         {/* Search */}
         <div className="relative print:hidden">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -226,21 +352,21 @@ const AbsencesAndTardiness = () => {
           <div className="glass-card p-3 text-center">
             <UserX className="w-5 h-5 mx-auto text-destructive mb-1" />
             <p className="text-lg font-bold text-foreground">
-              {visibleStatuses.filter(s => s.gate_status === 'absent' && !s.is_truant).length}
+              {displayList.filter(s => s.gate_status === 'absent' && !s.is_truant).length}
             </p>
             <p className="text-[10px] text-muted-foreground">غائب</p>
           </div>
           <div className="glass-card p-3 text-center">
             <Clock className="w-5 h-5 mx-auto text-amber-500 mb-1" />
             <p className="text-lg font-bold text-foreground">
-              {visibleStatuses.filter(s => s.gate_status === 'tardy').length}
+              {displayList.filter(s => s.gate_status === 'tardy').length}
             </p>
             <p className="text-[10px] text-muted-foreground">متأخر</p>
           </div>
           <div className="glass-card p-3 text-center">
             <div className="w-3 h-3 rounded-full bg-destructive animate-pulse mx-auto mb-1" />
             <p className="text-lg font-bold text-foreground">
-              {visibleStatuses.filter(s => s.is_truant).length}
+              {displayList.filter(s => s.is_truant).length}
             </p>
             <p className="text-[10px] text-muted-foreground">تغيب عن حصة</p>
           </div>
@@ -255,37 +381,39 @@ const AbsencesAndTardiness = () => {
           ) : filtered.length === 0 ? (
             <div className="py-12 text-center">
               <ShieldCheck className="w-12 h-12 mx-auto text-success mb-3 opacity-50" />
-              <p className="text-muted-foreground">لا توجد غيابات أو تأخرات اليوم</p>
+              <p className="text-muted-foreground">
+                {!timeStatus.pastAbsent ? 'لم يتجاوز وقت الغياب بعد' : 'لا توجد غيابات أو تأخرات اليوم'}
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {filtered.map((status, index) => (
-                <div key={status.id} className={`p-3 flex items-center gap-3 transition-colors ${status.is_truant ? 'bg-destructive/5' : ''}`}>
+              {filtered.map((student, index) => (
+                <div key={student.id} className={`p-3 flex items-center gap-3 transition-colors ${student.is_truant ? 'bg-destructive/5' : ''}`}>
                   <span className="text-xs text-muted-foreground w-6 text-center shrink-0">{index + 1}</span>
 
-                  {status.is_truant && (
+                  {student.is_truant && (
                     <span className="w-3 h-3 rounded-full bg-destructive animate-pulse shrink-0" title="تغيب عن الحصة رغم دخوله البوابة" />
                   )}
 
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm text-foreground truncate">
-                      {status.students?.last_name} {status.students?.first_name}
+                      {student.last_name} {student.first_name}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] text-muted-foreground">{status.students?.sections?.full_name}</span>
-                      {status.missed_sessions > 0 && (
-                        <span className="text-[10px] text-muted-foreground">• {status.missed_sessions} حصة</span>
+                      <span className="text-[10px] text-muted-foreground">{student.section_name}</span>
+                      {student.missed_sessions > 0 && (
+                        <span className="text-[10px] text-muted-foreground">• {student.missed_sessions} حصة</span>
                       )}
                     </div>
-                    {status.reporting_teachers && status.reporting_teachers.length > 0 && (
+                    {student.reporting_teachers.length > 0 && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        أساتذة: {status.reporting_teachers.join('، ')}
+                        أساتذة: {student.reporting_teachers.join('، ')}
                       </p>
                     )}
                   </div>
 
                   <div className="shrink-0">
-                    {getStatusBadge(status)}
+                    {getStatusBadge(student)}
                   </div>
 
                   <div className="shrink-0">
@@ -293,7 +421,7 @@ const AbsencesAndTardiness = () => {
                       variant="outline"
                       size="sm"
                       className="text-xs gap-1 border-success text-success hover:bg-success hover:text-success-foreground"
-                      onClick={() => allowEntry(status)}
+                      onClick={() => allowEntry(student)}
                     >
                       <DoorOpen className="w-3.5 h-3.5" />
                       سماح بالدخول
