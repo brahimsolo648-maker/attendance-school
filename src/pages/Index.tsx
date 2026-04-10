@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, Shield, School, BookOpen, Settings2, Workflow } from 'lucide-react';
+import { GraduationCap, Shield, BookOpen, Settings2, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
