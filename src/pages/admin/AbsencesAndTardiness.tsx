@@ -110,57 +110,124 @@ const AbsencesAndTardiness = () => {
     refetchInterval: 10000,
   });
 
+  // Fetch teacher-reported absences for today
+  const { data: teacherAbsences = [] } = useQuery({
+    queryKey: ['teacher-absences-today', today],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('absence_records')
+        .select('student_id, absence_list_id, absence_lists(teacher_id, subject, teachers(first_name, last_name))')
+        .gte('created_at', `${today}T00:00:00`)
+        .lte('created_at', `${today}T23:59:59`);
+      if (error) throw error;
+      return data || [];
+    },
+    refetchInterval: 10000,
+  });
+
   // Build the combined list
   const displayList: DisplayStudent[] = useMemo(() => {
     const statusMap = new Map<string, typeof dailyStatuses[0]>();
     dailyStatuses.forEach(s => statusMap.set(s.student_id, s));
 
-    const checkedInSet = new Set(attendanceRecords.filter(r => r.check_in_time).map(r => r.student_id));
+    const checkedInMap = new Map<string, typeof attendanceRecords[0]>();
+    attendanceRecords.forEach(r => {
+      if (r.check_in_time) checkedInMap.set(r.student_id, r);
+    });
+
+    // Build teacher absence info per student
+    const teacherAbsenceMap = new Map<string, { teachers: string[], sessions: number }>();
+    teacherAbsences.forEach((ta: any) => {
+      const sid = ta.student_id;
+      const existing = teacherAbsenceMap.get(sid) || { teachers: [], sessions: 0 };
+      existing.sessions += 1;
+      const teacher = ta.absence_lists?.teachers;
+      if (teacher) {
+        const name = `${teacher.first_name} ${teacher.last_name}`;
+        if (!existing.teachers.includes(name)) existing.teachers.push(name);
+      }
+      teacherAbsenceMap.set(sid, existing);
+    });
 
     const result: DisplayStudent[] = [];
+    const addedStudentIds = new Set<string>();
 
-    // 1) Students with daily_student_status records (tardy, absent, truant)
+    // 1) Students with daily_student_status records that indicate issues
     for (const status of dailyStatuses) {
-      if (status.gate_status === 'tardy' || status.gate_status === 'absent' || status.is_truant) {
-        if (!status.access_allowed || status.is_truant) {
-          const student = allStudents.find(s => s.id === status.student_id);
-          if (student) {
-            result.push({
-              id: status.id,
-              statusId: status.id,
-              student_id: status.student_id,
-              first_name: student.first_name,
-              last_name: student.last_name,
-              section_name: (student as any).sections?.full_name || '-',
-              gate_status: status.gate_status,
-              teacher_status: status.teacher_status,
-              is_truant: status.is_truant,
-              access_allowed: status.access_allowed,
-              missed_sessions: status.missed_sessions || 0,
-              reporting_teachers: status.reporting_teachers || [],
-            });
-          }
+      const isIssue = status.gate_status === 'tardy' || status.gate_status === 'absent' || status.is_truant;
+      // Show if there's an issue AND entry not yet allowed (or is truant)
+      if (isIssue && (!status.access_allowed || status.is_truant)) {
+        const student = allStudents.find(s => s.id === status.student_id);
+        if (student) {
+          const taInfo = teacherAbsenceMap.get(student.id);
+          addedStudentIds.add(student.id);
+          result.push({
+            id: status.id,
+            statusId: status.id,
+            student_id: status.student_id,
+            first_name: student.first_name,
+            last_name: student.last_name,
+            section_name: (student as any).sections?.full_name || '-',
+            gate_status: status.gate_status,
+            teacher_status: status.teacher_status,
+            is_truant: status.is_truant,
+            access_allowed: status.access_allowed,
+            missed_sessions: taInfo?.sessions || status.missed_sessions || 0,
+            reporting_teachers: taInfo?.teachers || status.reporting_teachers || [],
+          });
         }
       }
     }
 
-    // 2) Students who never scanned AND we're past the absent cutoff
-    if (timeStatus.pastAbsent) {
-      const alreadyInList = new Set(result.map(r => r.student_id));
-      for (const student of allStudents) {
-        if (alreadyInList.has(student.id)) continue;
-        if (checkedInSet.has(student.id)) continue;
-        if (statusMap.has(student.id)) continue; // already has a status record
+    // 2) Students reported absent by teachers but not yet in the list
+    for (const [studentId, taInfo] of teacherAbsenceMap.entries()) {
+      if (addedStudentIds.has(studentId)) continue;
+      const student = allStudents.find(s => s.id === studentId);
+      if (!student) continue;
+      
+      const status = statusMap.get(studentId);
+      // If student has a status with access_allowed=true and gate_status=present, they were allowed - 
+      // but teacher reported them absent = truancy
+      const checkedIn = checkedInMap.has(studentId);
+      const isTruant = checkedIn; // Scanned at gate but absent in class
+      
+      addedStudentIds.add(studentId);
+      result.push({
+        id: status?.id || `teacher-${studentId}`,
+        statusId: status?.id || null,
+        student_id: studentId,
+        first_name: student.first_name,
+        last_name: student.last_name,
+        section_name: (student as any).sections?.full_name || '-',
+        gate_status: checkedIn ? 'present' : 'absent',
+        teacher_status: 'absent',
+        is_truant: isTruant,
+        access_allowed: false,
+        missed_sessions: taInfo.sessions,
+        reporting_teachers: taInfo.teachers,
+      });
+    }
 
+    // 3) Students who never scanned AND we're past the absent cutoff
+    if (timeStatus.pastAbsent) {
+      for (const student of allStudents) {
+        if (addedStudentIds.has(student.id)) continue;
+        if (checkedInMap.has(student.id)) continue;
+        
+        // Check if they have a daily_student_status with access_allowed=true (admin allowed them)
+        const existingStatus = statusMap.get(student.id);
+        if (existingStatus && existingStatus.access_allowed && existingStatus.gate_status === 'present') continue;
+
+        addedStudentIds.add(student.id);
         result.push({
-          id: `auto-${student.id}`,
-          statusId: null,
+          id: existingStatus?.id || `auto-${student.id}`,
+          statusId: existingStatus?.id || null,
           student_id: student.id,
           first_name: student.first_name,
           last_name: student.last_name,
           section_name: (student as any).sections?.full_name || '-',
           gate_status: 'absent',
-          teacher_status: 'present',
+          teacher_status: 'unknown',
           is_truant: false,
           access_allowed: false,
           missed_sessions: 0,
@@ -170,7 +237,7 @@ const AbsencesAndTardiness = () => {
     }
 
     return result;
-  }, [dailyStatuses, allStudents, attendanceRecords, timeStatus]);
+  }, [dailyStatuses, allStudents, attendanceRecords, teacherAbsences, timeStatus]);
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return displayList;
@@ -184,14 +251,12 @@ const AbsencesAndTardiness = () => {
   const allowEntry = async (student: DisplayStudent) => {
     try {
       if (student.statusId) {
-        // Update existing daily_student_status
         const { error } = await supabase
           .from('daily_student_status')
           .update({ access_allowed: true, gate_status: 'present' })
           .eq('id', student.statusId);
         if (error) throw error;
       } else {
-        // Create a daily_student_status record with access_allowed = true
         const { error } = await supabase
           .from('daily_student_status')
           .insert({
@@ -203,17 +268,24 @@ const AbsencesAndTardiness = () => {
         if (error) throw error;
       }
 
-      // Update attendance_records too
-      await supabase
+      // Also update/create attendance_records
+      const { data: existingAttendance } = await supabase
         .from('attendance_records')
-        .update({ gate_status: 'present', access_allowed: true })
+        .select('id')
         .eq('student_id', student.student_id)
-        .eq('date', today);
+        .eq('date', today)
+        .maybeSingle();
+
+      if (existingAttendance) {
+        await supabase
+          .from('attendance_records')
+          .update({ gate_status: 'present', access_allowed: true })
+          .eq('id', existingAttendance.id);
+      }
 
       toast.success('تم السماح بالدخول');
       queryClient.invalidateQueries({ queryKey: ['absences-daily-status'] });
       queryClient.invalidateQueries({ queryKey: ['attendance-records-today'] });
-      queryClient.invalidateQueries({ queryKey: ['absences-tardiness-page'] });
     } catch {
       toast.error('حدث خطأ أثناء تحديث الحالة');
     }
@@ -237,16 +309,11 @@ const AbsencesAndTardiness = () => {
     return null;
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => { window.print(); };
 
   const handleDownloadPDF = () => {
     const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('يرجى السماح بالنوافذ المنبثقة');
-      return;
-    }
+    if (!printWindow) { toast.error('يرجى السماح بالنوافذ المنبثقة'); return; }
 
     let rows = '';
     filtered.forEach((student, i) => {
@@ -255,37 +322,7 @@ const AbsencesAndTardiness = () => {
       rows += `<tr><td>${i + 1}</td><td>${name}</td><td>${student.section_name}</td><td>${label}</td></tr>`;
     });
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html dir="rtl" lang="ar">
-        <head>
-          <meta charset="UTF-8">
-          <title>قائمة الغيابات والتأخرات - ${today}</title>
-          <style>
-            @page { size: A4; margin: 1.5cm; }
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { font-family: 'Segoe UI', Tahoma, Arial, sans-serif; direction: rtl; padding: 20px; }
-            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1a365d; padding-bottom: 10px; }
-            .header h1 { font-size: 20px; color: #1a365d; }
-            .header p { font-size: 12px; color: #666; margin-top: 5px; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 15px; }
-            th, td { padding: 8px 12px; text-align: right; border: 1px solid #ddd; }
-            th { background: #f0f0f0; font-weight: 600; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>الغيابات والتأخرات</h1>
-            <p>${today} - الإجمالي: ${filtered.length}</p>
-          </div>
-          <table>
-            <thead><tr><th>#</th><th>الاسم الكامل</th><th>القسم</th><th>الحالة</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-          <script>window.onload = function() { window.print(); }</script>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(`<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>الغيابات والتأخرات - ${today}</title><style>@page{size:A4;margin:1.5cm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Tahoma,Arial,sans-serif;direction:rtl;padding:20px}.header{text-align:center;margin-bottom:20px;border-bottom:2px solid #1a365d;padding-bottom:10px}.header h1{font-size:20px;color:#1a365d}.header p{font-size:12px;color:#666;margin-top:5px}table{width:100%;border-collapse:collapse;font-size:12px;margin-top:15px}th,td{padding:8px 12px;text-align:right;border:1px solid #ddd}th{background:#f0f0f0;font-weight:600}</style></head><body><div class="header"><h1>الغيابات والتأخرات</h1><p>${today} - الإجمالي: ${filtered.length}</p></div><table><thead><tr><th>#</th><th>الاسم الكامل</th><th>القسم</th><th>الحالة</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.print()}<\/script></body></html>`);
     printWindow.document.close();
   };
 
@@ -293,7 +330,6 @@ const AbsencesAndTardiness = () => {
 
   return (
     <div className="page-container min-h-screen" dir="rtl">
-      {/* Header */}
       <header className="glass-nav print:hidden">
         <div className="content-container flex items-center justify-between h-16">
           <Button variant="ghost" onClick={() => navigate('/admin/control-panel/dashboard')}>
@@ -307,72 +343,49 @@ const AbsencesAndTardiness = () => {
           <div className="flex gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <FileDown className="w-4 h-4 ml-1" />
-                  PDF
-                </Button>
+                <Button variant="outline" size="sm"><FileDown className="w-4 h-4 ml-1" />PDF</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleDownloadPDF}>
-                  <Download className="w-4 h-4 ml-2" />
-                  تنزيل PDF
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDownloadPDF}><Download className="w-4 h-4 ml-2" />تنزيل PDF</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" size="sm" onClick={handlePrint}>
-              <Printer className="w-4 h-4 ml-1" />
-              طباعة
-            </Button>
+            <Button variant="outline" size="sm" onClick={handlePrint}><Printer className="w-4 h-4 ml-1" />طباعة</Button>
           </div>
         </div>
       </header>
 
       <main className="content-container py-6 space-y-4">
-        {/* Time info */}
         {settings && (
           <div className="text-xs text-muted-foreground text-center print:hidden">
             تأخر بعد: {settings.tardyCutoff} | غياب بعد: {settings.absentCutoff}
+            {timeStatus.pastTardy && !timeStatus.pastAbsent && <span className="text-warning mr-2">• وقت التأخر</span>}
             {timeStatus.pastAbsent && <span className="text-destructive mr-2">• تجاوز وقت الغياب</span>}
           </div>
         )}
 
-        {/* Search */}
         <div className="relative print:hidden">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="بحث بالاسم أو القسم..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pr-10"
-          />
+          <Input placeholder="بحث بالاسم أو القسم..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pr-10" />
         </div>
 
-        {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-3 print:hidden">
           <div className="glass-card p-3 text-center">
             <UserX className="w-5 h-5 mx-auto text-destructive mb-1" />
-            <p className="text-lg font-bold text-foreground">
-              {displayList.filter(s => s.gate_status === 'absent' && !s.is_truant).length}
-            </p>
+            <p className="text-lg font-bold text-foreground">{displayList.filter(s => s.gate_status === 'absent' && !s.is_truant).length}</p>
             <p className="text-[10px] text-muted-foreground">غائب</p>
           </div>
           <div className="glass-card p-3 text-center">
             <Clock className="w-5 h-5 mx-auto text-amber-500 mb-1" />
-            <p className="text-lg font-bold text-foreground">
-              {displayList.filter(s => s.gate_status === 'tardy').length}
-            </p>
+            <p className="text-lg font-bold text-foreground">{displayList.filter(s => s.gate_status === 'tardy').length}</p>
             <p className="text-[10px] text-muted-foreground">متأخر</p>
           </div>
           <div className="glass-card p-3 text-center">
             <div className="w-3 h-3 rounded-full bg-destructive animate-pulse mx-auto mb-1" />
-            <p className="text-lg font-bold text-foreground">
-              {displayList.filter(s => s.is_truant).length}
-            </p>
+            <p className="text-lg font-bold text-foreground">{displayList.filter(s => s.is_truant).length}</p>
             <p className="text-[10px] text-muted-foreground">تغيب عن حصة</p>
           </div>
         </div>
 
-        {/* Data List */}
         <div ref={tableRef} className="glass-card overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -382,7 +395,7 @@ const AbsencesAndTardiness = () => {
             <div className="py-12 text-center">
               <ShieldCheck className="w-12 h-12 mx-auto text-success mb-3 opacity-50" />
               <p className="text-muted-foreground">
-                {!timeStatus.pastAbsent ? 'لم يتجاوز وقت الغياب بعد' : 'لا توجد غيابات أو تأخرات اليوم'}
+                {!timeStatus.pastTardy ? 'لم يتجاوز وقت التأخر بعد - الغيابات ستظهر تلقائياً بعد تجاوز الوقت المحدد' : 'لا توجد غيابات أو تأخرات اليوم'}
               </p>
             </div>
           ) : (
@@ -412,19 +425,17 @@ const AbsencesAndTardiness = () => {
                     )}
                   </div>
 
-                  <div className="shrink-0">
-                    {getStatusBadge(student)}
-                  </div>
+                  <div className="shrink-0">{getStatusBadge(student)}</div>
 
                   <div className="shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-xs gap-1 border-success text-success hover:bg-success hover:text-success-foreground"
+                      className="text-xs gap-1 border-success text-success hover:bg-success hover:text-success-foreground active:scale-[0.98]"
                       onClick={() => allowEntry(student)}
                     >
                       <DoorOpen className="w-3.5 h-3.5" />
-                      سماح بالدخول
+                      سماح
                     </Button>
                   </div>
                 </div>
