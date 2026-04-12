@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import LoadingScreen from '@/components/LoadingScreen';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,16 +67,13 @@ const AbsencesAndTardiness = () => {
     return { pastTardy: now >= tardyTime, pastAbsent: now >= absentTime };
   }, [settings]);
 
-  // Fetch daily_student_status records
+  // Fetch daily_student_status records for today
   const { data: dailyStatuses = [] } = useQuery({
     queryKey: ['absences-daily-status', today],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('daily_student_status')
-        .select(`
-          id, student_id, date, gate_status, teacher_status, is_truant, 
-          access_allowed, missed_sessions, reporting_teachers
-        `)
+        .select('id, student_id, date, gate_status, teacher_status, is_truant, access_allowed, missed_sessions, reporting_teachers')
         .eq('date', today);
       if (error) throw error;
       return data || [];
@@ -96,7 +94,7 @@ const AbsencesAndTardiness = () => {
     },
   });
 
-  // Fetch attendance records to know who checked in
+  // Fetch attendance records to know who checked in today
   const { data: attendanceRecords = [] } = useQuery({
     queryKey: ['attendance-records-today', today],
     queryFn: async () => {
@@ -152,11 +150,10 @@ const AbsencesAndTardiness = () => {
     const result: DisplayStudent[] = [];
     const addedStudentIds = new Set<string>();
 
-    // 1) Students with daily_student_status records that indicate issues
+    // 1) Students with daily_student_status that are NOT allowed (tardy/absent/truant)
     for (const status of dailyStatuses) {
-      const isIssue = status.gate_status === 'tardy' || status.gate_status === 'absent' || status.is_truant;
-      // Show if there's an issue AND entry not yet allowed (or is truant)
-      if (isIssue && (!status.access_allowed || status.is_truant)) {
+      // Show students who are NOT access_allowed OR are truant
+      if (!status.access_allowed || status.is_truant) {
         const student = allStudents.find(s => s.id === status.student_id);
         if (student) {
           const taInfo = teacherAbsenceMap.get(student.id);
@@ -179,18 +176,19 @@ const AbsencesAndTardiness = () => {
       }
     }
 
-    // 2) Students reported absent by teachers but not yet in the list
+    // 2) Students reported absent by teachers but not yet in the list (truancy detection)
     for (const [studentId, taInfo] of teacherAbsenceMap.entries()) {
       if (addedStudentIds.has(studentId)) continue;
       const student = allStudents.find(s => s.id === studentId);
       if (!student) continue;
       
       const status = statusMap.get(studentId);
-      // If student has a status with access_allowed=true and gate_status=present, they were allowed - 
-      // but teacher reported them absent = truancy
       const checkedIn = checkedInMap.has(studentId);
       const isTruant = checkedIn; // Scanned at gate but absent in class
       
+      // If student already allowed and not truant, skip
+      if (status && status.access_allowed && !isTruant) continue;
+
       addedStudentIds.add(studentId);
       result.push({
         id: status?.id || `teacher-${studentId}`,
@@ -208,15 +206,15 @@ const AbsencesAndTardiness = () => {
       });
     }
 
-    // 3) Students who never scanned AND we're past the absent cutoff
-    if (timeStatus.pastAbsent) {
+    // 3) Auto-detect: students who never scanned AND past tardy/absent cutoff
+    if (timeStatus.pastTardy) {
       for (const student of allStudents) {
         if (addedStudentIds.has(student.id)) continue;
         if (checkedInMap.has(student.id)) continue;
         
-        // Check if they have a daily_student_status with access_allowed=true (admin allowed them)
+        // Check if they already have a status with access_allowed=true
         const existingStatus = statusMap.get(student.id);
-        if (existingStatus && existingStatus.access_allowed && existingStatus.gate_status === 'present') continue;
+        if (existingStatus && existingStatus.access_allowed) continue;
 
         addedStudentIds.add(student.id);
         result.push({
@@ -226,7 +224,7 @@ const AbsencesAndTardiness = () => {
           first_name: student.first_name,
           last_name: student.last_name,
           section_name: (student as any).sections?.full_name || '-',
-          gate_status: 'absent',
+          gate_status: timeStatus.pastAbsent ? 'absent' : 'tardy',
           teacher_status: 'unknown',
           is_truant: false,
           access_allowed: false,
@@ -253,7 +251,7 @@ const AbsencesAndTardiness = () => {
       if (student.statusId) {
         const { error } = await supabase
           .from('daily_student_status')
-          .update({ access_allowed: true, gate_status: 'present' })
+          .update({ access_allowed: true, gate_status: 'present', is_truant: false })
           .eq('id', student.statusId);
         if (error) throw error;
       } else {
@@ -264,11 +262,12 @@ const AbsencesAndTardiness = () => {
             date: today,
             gate_status: 'present',
             access_allowed: true,
+            is_truant: false,
           });
         if (error) throw error;
       }
 
-      // Also update/create attendance_records
+      // Also update attendance_records to allow scanning
       const { data: existingAttendance } = await supabase
         .from('attendance_records')
         .select('id')
@@ -326,7 +325,7 @@ const AbsencesAndTardiness = () => {
     printWindow.document.close();
   };
 
-  const isLoading = studentsLoading;
+  if (studentsLoading) return <LoadingScreen />;
 
   return (
     <div className="page-container min-h-screen" dir="rtl">
@@ -387,11 +386,7 @@ const AbsencesAndTardiness = () => {
         </div>
 
         <div ref={tableRef} className="glass-card overflow-hidden">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : filtered.length === 0 ? (
+          {filtered.length === 0 ? (
             <div className="py-12 text-center">
               <ShieldCheck className="w-12 h-12 mx-auto text-success mb-3 opacity-50" />
               <p className="text-muted-foreground">
