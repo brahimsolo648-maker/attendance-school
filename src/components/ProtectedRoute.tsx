@@ -1,6 +1,7 @@
-import { ReactNode, useState, useEffect, useCallback, useRef } from 'react';
+import { ReactNode, useState, useEffect, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import LoadingScreen from '@/components/LoadingScreen';
 
 type RequiredRole = 'admin' | 'teacher' | 'any';
 
@@ -10,7 +11,6 @@ interface ProtectedRouteProps {
   redirectTo?: string;
 }
 
-// Cache auth state globally so navigation between protected pages is instant
 let cachedAuth: { userId: string; roles: string[] } | null = null;
 
 const ProtectedRoute = ({ 
@@ -104,9 +104,8 @@ const ProtectedRoute = ({
     };
   }, [requiredRole]);
 
-  // No loading screen — render nothing briefly while checking
   if (isLoading) {
-    return null;
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {

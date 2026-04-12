@@ -1,11 +1,11 @@
 {
-  "name": "الحضور - نظام إدارة الحضور الذكي",
-  "short_name": "الحضور",
+  "name": "SchoolOS - نظام إدارة الحضور الذكي",
+  "short_name": "SchoolOS",
   "description": "نظام متكامل لإدارة حضور وغياب التلاميذ بتقنية المسح الذكي",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "background_color": "#1e293b",
+  "theme_color": "#1e293b",
   "orientation": "portrait-primary",
   "icons": [
     {

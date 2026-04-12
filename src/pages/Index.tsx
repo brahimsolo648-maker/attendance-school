@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, Shield, BookOpen, Settings2, Workflow } from 'lucide-react';
+import { GraduationCap, Shield, BookOpen, Settings2, Workflow, QrCode, FileText, Users, ScanLine, Bell, Lock, BarChart3, Upload, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import schoolIcon from '@/assets/schoolos-icon.png';
 
 type ModalType = 'teacher' | 'admin' | 'system' | null;
@@ -113,110 +114,249 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Teacher Info Modal */}
-      <Dialog open={openModal === 'teacher'} onOpenChange={(o) => !o && setOpenModal(null)}>
-        <DialogContent className="max-w-sm" dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <BookOpen className="w-5 h-5 text-primary" />
+      {/* Teacher Info Sheet */}
+      <Sheet open={openModal === 'teacher'} onOpenChange={(o) => !o && setOpenModal(null)}>
+        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl" dir="rtl">
+          <SheetHeader className="pb-4 border-b border-border">
+            <SheetTitle className="flex items-center gap-3 text-xl">
+              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-primary" />
+              </div>
               معلومات صفحة الأستاذ
-            </DialogTitle>
-            <DialogDescription>مكونات وميزات واجهة الأستاذ</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 text-sm text-foreground/80">
-            <div className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
-              <p>عرض الأقسام المسندة إلى الأستاذ مع قائمة التلاميذ لكل قسم</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
-              <p>تسجيل غياب التلاميذ يدوياً من داخل القسم وإرسال قائمة الغياب</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
-              <p>التوقيع الإلكتروني لتأكيد إرسال قائمة الحضور</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
-              <p>عرض حالة كل تلميذ (حاضر، غائب، متأخر) في الوقت الحقيقي</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0" />
-              <p>إعدادات الحساب وتغيير الصورة الشخصية</p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </SheetTitle>
+            <SheetDescription>دليل شامل لجميع مكونات وميزات واجهة الأستاذ في نظام SchoolOS</SheetDescription>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(85vh-120px)] mt-4 pr-1">
+            <div className="space-y-6 pb-8">
+              {/* Section 1 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                    <Users className="w-4.5 h-4.5 text-primary" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">إدارة الأقسام والتلاميذ</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-12">
+                  عند تسجيل الدخول، يعرض النظام تلقائياً جميع الأقسام المسندة إلى الأستاذ من قِبل الإدارة. بالضغط على أي قسم، تظهر قائمة كاملة بأسماء التلاميذ مع حالة كل تلميذ في الوقت الحقيقي (حاضر، غائب، أو متأخر). تُحدّث الحالات تلقائياً بناءً على بيانات المسح عند البوابة، مما يمنح الأستاذ رؤية فورية ودقيقة لحضور تلاميذه.
+                </p>
+              </div>
 
-      {/* Admin Info Modal */}
-      <Dialog open={openModal === 'admin'} onOpenChange={(o) => !o && setOpenModal(null)}>
-        <DialogContent className="max-w-sm" dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <Settings2 className="w-5 h-5 text-accent-foreground" />
+              {/* Section 2 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-destructive/15 flex items-center justify-center shrink-0">
+                    <FileText className="w-4.5 h-4.5 text-destructive" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">تسجيل الغياب وإرسال القوائم</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-12">
+                  يمكن للأستاذ تحديد التلاميذ الغائبين يدوياً من داخل القسم بالضغط على اسم كل تلميذ غائب. بعد الانتهاء، يقوم بإرسال قائمة الغياب اليومية إلى الإدارة بضغطة واحدة. تتضمن القائمة المرسلة: اسم الأستاذ، المادة، القسم، وقائمة التلاميذ الغائبين، مما يضمن توثيقاً رسمياً ودقيقاً لكل حصة.
+                </p>
+              </div>
+
+              {/* Section 3 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-warning/15 flex items-center justify-center shrink-0">
+                    <ScanLine className="w-4.5 h-4.5 text-warning" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">التوقيع الإلكتروني للتأكيد</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-12">
+                  لضمان مصداقية البيانات، يُطلب من الأستاذ التوقيع إلكترونياً قبل إرسال كل قائمة غياب. هذا التوقيع يُعتبر بمثابة تأكيد رسمي بأن الأستاذ هو من قام بتسجيل الغياب، ويتم حفظه مع القائمة كمرجع إداري. يمكن للأستاذ إعادة التوقيع أو مسحه قبل الإرسال النهائي.
+                </p>
+              </div>
+
+              {/* Section 4 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-success/15 flex items-center justify-center shrink-0">
+                    <Bell className="w-4.5 h-4.5 text-success" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">متابعة حالات التلاميذ</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-12">
+                  يعرض النظام بجانب اسم كل تلميذ شارة (Badge) ملونة تدل على حالته: أخضر للحاضر، أصفر للمتأخر، وأحمر للغائب. هذه الشارات تُحدّث في الوقت الحقيقي بناءً على بيانات المسح عند البوابة، مما يساعد الأستاذ على مقارنة الحضور الفعلي في القسم مع بيانات النظام واكتشاف أي تناقض فوري.
+                </p>
+              </div>
+
+              {/* Section 5 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center shrink-0">
+                    <Settings2 className="w-4.5 h-4.5 text-accent-foreground" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">إعدادات الحساب الشخصي</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-12">
+                  يمكن للأستاذ الوصول إلى صفحة الإعدادات لتعديل صورته الشخصية، وتغيير كلمة المرور، ومراجعة بياناته المسجلة في النظام. تتيح هذه الصفحة أيضاً تسجيل الخروج الآمن من الحساب، مع ضمان حفظ جميع البيانات والقوائم المرسلة سابقاً.
+                </p>
+              </div>
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      {/* Admin Info Sheet */}
+      <Sheet open={openModal === 'admin'} onOpenChange={(o) => !o && setOpenModal(null)}>
+        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl" dir="rtl">
+          <SheetHeader className="pb-4 border-b border-border">
+            <SheetTitle className="flex items-center gap-3 text-xl">
+              <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
+                <Settings2 className="w-5 h-5 text-accent-foreground" />
+              </div>
               معلومات صفحة الإدارة
-            </DialogTitle>
-            <DialogDescription>صلاحيات ومكونات لوحة تحكم الإدارة</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 text-sm text-foreground/80">
-            <div className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-foreground mt-2 shrink-0" />
-              <p>مسح رموز QR عند البوابة لتسجيل دخول وخروج التلاميذ</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-foreground mt-2 shrink-0" />
-              <p>لوحة تحكم متكاملة: التقارير، الغيابات والتأخرات، إدارة القوائم</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-foreground mt-2 shrink-0" />
-              <p>الموافقة أو رفض طلبات تسجيل الأساتذة الجدد</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-foreground mt-2 shrink-0" />
-              <p>إدارة بطاقات التلاميذ مع رموز QR و Barcode</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-foreground mt-2 shrink-0" />
-              <p>تحديد أوقات التأخر والغياب وإعدادات النظام</p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+            </SheetTitle>
+            <SheetDescription>دليل شامل لصلاحيات ومكونات لوحة تحكم الإدارة في نظام SchoolOS</SheetDescription>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(85vh-120px)] mt-4 pr-1">
+            <div className="space-y-6 pb-8">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                    <QrCode className="w-4.5 h-4.5 text-primary" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">ماسح QR عند البوابة</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-12">
+                  تتيح صفحة المسح للإدارة تشغيل كاميرا الجهاز لمسح رموز QR وBarcode الخاصة ببطاقات التلاميذ عند مدخل المؤسسة. يقوم النظام تلقائياً بتسجيل وقت الدخول وتصنيف الحالة (حاضر، متأخر، أو غائب) بناءً على الأوقات المحددة في الإعدادات. كما يمنع النظام دخول التلاميذ الممنوعين أو من تجاوزوا وقت الغياب دون إذن مسبق من الإدارة.
+                </p>
+              </div>
 
-      {/* System Workflow Modal */}
-      <Dialog open={openModal === 'system'} onOpenChange={(o) => !o && setOpenModal(null)}>
-        <DialogContent className="max-w-sm" dir="rtl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <Workflow className="w-5 h-5 text-warning" />
-              طريقة عمل النظام
-            </DialogTitle>
-            <DialogDescription>تدفق عمل نظام SchoolOS</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 text-sm text-foreground/80">
-            <div className="flex items-start gap-3">
-              <span className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">1</span>
-              <p>يحصل كل طالب على <strong>بطاقة تعريف ذكية</strong> تحتوي على رمز QR ورمز Barcode فريد</p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-destructive/15 flex items-center justify-center shrink-0">
+                    <FileText className="w-4.5 h-4.5 text-destructive" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">التقارير اليومية</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-12">
+                  تعرض صفحة التقارير قائمة موحدة بجميع حالات الغياب اليومية، سواء المسجلة عن طريق المسح عند البوابة أو المرسلة من الأساتذة داخل الأقسام. يمكن للإدارة تصدير هذه التقارير كملفات PDF أو طباعتها مباشرة للأرشفة الورقية. تتضمن كل سجل: اسم التلميذ، القسم، السنة الدراسية، وتاريخ الغياب.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-warning/15 flex items-center justify-center shrink-0">
+                    <Lock className="w-4.5 h-4.5 text-warning" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">الغيابات والتأخرات والتحكم</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-12">
+                  توفر هذه الصفحة رؤية مركزية لجميع التلاميذ المتأخرين والغائبين مع إمكانية السماح بدخولهم يدوياً. يكشف النظام تلقائياً حالات التغيب عن الحصص (عندما يكون التلميذ حاضراً عند البوابة لكنه غائب في القسم) ويميزها بمؤشر أحمر واضح. يبقى التلميذ في القائمة حتى يتم السماح له بالدخول من قبل الإدارة.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-success/15 flex items-center justify-center shrink-0">
+                    <Users className="w-4.5 h-4.5 text-success" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">إدارة القوائم والأساتذة</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-12">
+                  تتيح لوحة التحكم إدارة كاملة لقوائم التلاميذ والأقسام، مع إمكانية إضافة أو تعديل أو حذف التلاميذ وعرض بطاقاتهم الذكية. كما تشمل نظام الموافقة على طلبات تسجيل الأساتذة الجدد، وإسناد الأقسام لكل أستاذ، وإعداد أوقات التأخر والغياب، وتحميل قوائم التلاميذ من ملفات Excel.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center shrink-0">
+                    <BarChart3 className="w-4.5 h-4.5 text-accent-foreground" />
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">الإحصائيات والإشعارات</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-12">
+                  يوفر النظام إحصائيات تفصيلية عن نسب الحضور والغياب لكل قسم ولكل تلميذ على مدار الفترات الزمنية المختلفة. كما يُنبّه الإدارة تلقائياً عند تجاوز تلميذ لعدد أيام غياب معين عبر نظام إشعارات ذكي يتدرج في مستويات التنبيه (إشعار أول، إشعار ثاني، إعذار، شطب).
+                </p>
+              </div>
             </div>
-            <div className="flex items-start gap-3">
-              <span className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">2</span>
-              <p>يتم <strong>مسح رمز QR</strong> عند مدخل المؤسسة لتسجيل الدخول والخروج تلقائياً</p>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      {/* System Workflow Sheet */}
+      <Sheet open={openModal === 'system'} onOpenChange={(o) => !o && setOpenModal(null)}>
+        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl" dir="rtl">
+          <SheetHeader className="pb-4 border-b border-border">
+            <SheetTitle className="flex items-center gap-3 text-xl">
+              <div className="w-10 h-10 rounded-xl bg-warning/20 flex items-center justify-center">
+                <Workflow className="w-5 h-5 text-warning" />
+              </div>
+              طريقة عمل نظام SchoolOS
+            </SheetTitle>
+            <SheetDescription>شرح تفصيلي لتدفق العمل الكامل من لحظة دخول التلميذ حتى إصدار التقارير</SheetDescription>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(85vh-120px)] mt-4 pr-1">
+            <div className="space-y-6 pb-8">
+              {/* Step 1 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-primary">1</span>
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">إعداد بطاقات التعريف الذكية</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-14">
+                  تبدأ العملية بإنشاء بطاقة تعريف ذكية لكل تلميذ عبر لوحة تحكم الإدارة. تحتوي كل بطاقة على رمز QR فريد ورمز Barcode من نوع EAN-13، إضافة إلى معلومات التلميذ الأساسية (الاسم، القسم، السنة الدراسية). يمكن طباعة البطاقات بشكل فردي أو جماعي حسب القسم، ويتم تصديرها بجودة عالية مناسبة للطباعة الاحترافية.
+                </p>
+              </div>
+
+              {/* Step 2 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-primary">2</span>
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">المسح عند بوابة المؤسسة</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-14">
+                  عند وصول التلميذ إلى المؤسسة، يقوم بتمرير بطاقته أمام جهاز المسح (كاميرا أو ماسح ضوئي) عند البوابة. يقرأ النظام الرمز ويتحقق من هوية التلميذ فوراً. بناءً على الوقت الحالي مقارنةً بالأوقات المحددة في إعدادات النظام، يتم تصنيف التلميذ تلقائياً: <strong>حاضر</strong> إذا وصل قبل وقت التأخر، <strong>متأخر</strong> إذا وصل بين وقت التأخر ووقت الغياب، أو يُرفض دخوله إذا تجاوز وقت الغياب.
+                </p>
+              </div>
+
+              {/* Step 3 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-primary">3</span>
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">تأكيد الحضور داخل القسم</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-14">
+                  يقوم الأستاذ بفتح قائمة القسم من تطبيقه، حيث يرى جميع التلاميذ مع حالاتهم المحدّثة تلقائياً من بيانات البوابة. يحدد الأستاذ التلاميذ الغائبين فعلياً في الحصة، ثم يوقّع إلكترونياً ويرسل القائمة. هذه الخطوة ضرورية لأنها تكشف التناقضات: تلميذ مسح بطاقته عند البوابة (حاضر) لكنه لم يحضر الحصة (تغيّب عنها)، وهو ما يُعرف بـ"التغيب عن الحصة".
+                </p>
+              </div>
+
+              {/* Step 4 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-primary">4</span>
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">المعالجة الآلية وكشف التناقضات</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-14">
+                  يقوم نظام SchoolOS بمقارنة بيانات البوابة مع بيانات الأساتذة في الوقت الحقيقي. عند اكتشاف تناقض (حاضر في البوابة + غائب في القسم)، يُضاف التلميذ تلقائياً إلى قائمة الغيابات مع مؤشر أحمر واضح يُنبّه الإدارة. كما يتم تسجيل جميع التلاميذ الذين لم يمسحوا رموزهم بعد تجاوز وقت الغياب كغائبين تلقائياً، دون الحاجة لتدخل يدوي.
+                </p>
+              </div>
+
+              {/* Step 5 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-bold text-primary">5</span>
+                  </div>
+                  <h3 className="font-bold text-foreground text-base">التحكم الإداري والتقارير</h3>
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed pr-14">
+                  تملك الإدارة صلاحية كاملة للتحكم في الوضع: السماح بدخول تلميذ متأخر أو غائب عبر زر "سماح"، مراجعة التقارير اليومية وتصديرها كـ PDF أو طباعتها، ومتابعة الإحصائيات العامة. يحتفظ النظام بأرشيف كامل لجميع البيانات التاريخية، ويُصدر إشعارات تلقائية عند تجاوز تلميذ لعتبات غياب محددة (3 أيام، 7 أيام، إلخ).
+                </p>
+              </div>
             </div>
-            <div className="flex items-start gap-3">
-              <span className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">3</span>
-              <p>الأستاذ يقوم <strong>بتأكيد الحضور</strong> داخل القسم وإرسال قائمة الغياب اليومية</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">4</span>
-              <p>النظام <strong>يجمع البيانات</strong> من البوابة والأقسام ويكشف حالات التغيب عن الحصص تلقائياً</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 text-xs font-bold text-primary">5</span>
-              <p>الإدارة تراقب <strong>التقارير والإحصائيات</strong> وتتحكم في صلاحيات الدخول والسماح</p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
