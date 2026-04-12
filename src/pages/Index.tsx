@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, Shield, BookOpen, Settings2, Workflow, QrCode, FileText, Users, ScanLine, Bell, Lock, BarChart3, Upload, Archive } from 'lucide-react';
+import { GraduationCap, Shield, BookOpen, Settings2, Workflow, QrCode, FileText, Users, ScanLine, Bell, Lock, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
