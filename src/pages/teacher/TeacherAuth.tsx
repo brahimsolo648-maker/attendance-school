@@ -196,6 +196,18 @@ const TeacherAuth = () => {
 
       // Sign in failed - could be wrong password or no auth account
       if (signInError) {
+        // Network error first
+        const errMsg = signInError.message?.toLowerCase() || '';
+        if (errMsg.includes('failed to fetch') || errMsg.includes('networkerror') || errMsg.includes('load failed')) {
+          toast({
+            title: 'خطأ في الاتصال',
+            description: 'تعذّر الاتصال بالخادم، تحقق من الإنترنت وحاول مرة أخرى',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+
         // Check if teacher record exists
         const { data: teacherData } = await supabase
           .from('teachers')
