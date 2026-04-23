@@ -380,7 +380,7 @@ const TeacherAuth = () => {
             <h1 className="text-2xl font-bold text-foreground">واجهة الأستاذ</h1>
           </div>
 
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs defaultValue={initialTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login" className="text-base font-semibold">لدي حساب</TabsTrigger>
               <TabsTrigger value="register" className="text-base font-semibold">حساب جديد</TabsTrigger>
