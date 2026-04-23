@@ -103,11 +103,38 @@ const TeacherAuth = () => {
     try {
       const email = loginEmail.trim().toLowerCase();
       
+      // Helper: sign-in with one retry on transient/network errors.
+      const signInWithRetry = async () => {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const result = await supabase.auth.signInWithPassword({
+              email,
+              password: loginPassword,
+            });
+            // Retry only on clearly-transient network failures.
+            const msg = result.error?.message?.toLowerCase() || '';
+            const isNetwork =
+              msg.includes('failed to fetch') ||
+              msg.includes('networkerror') ||
+              msg.includes('load failed');
+            if (isNetwork && attempt === 0) {
+              await new Promise((r) => setTimeout(r, 600));
+              continue;
+            }
+            return result;
+          } catch (err: any) {
+            if (attempt === 0) {
+              await new Promise((r) => setTimeout(r, 600));
+              continue;
+            }
+            return { data: { user: null, session: null }, error: err };
+          }
+        }
+        return { data: { user: null, session: null }, error: new Error('Sign-in failed') };
+      };
+
       // Step 1: Try to sign in directly first (most common case)
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password: loginPassword,
-      });
+      const { data: signInData, error: signInError } = await signInWithRetry();
 
       if (!signInError && signInData.user) {
         // Successfully signed in - check teacher role
