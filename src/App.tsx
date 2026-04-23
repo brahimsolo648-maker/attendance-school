@@ -10,6 +10,11 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
+// Info Pages
+import InfoTeacher from "./pages/info/InfoTeacher";
+import InfoAdmin from "./pages/info/InfoAdmin";
+import InfoSystem from "./pages/info/InfoSystem";
+
 // Teacher Pages
 import TeacherAuth from "./pages/teacher/TeacherAuth";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
@@ -48,6 +53,11 @@ const App = () => (
           <Routes>
             {/* Main */}
             <Route path="/" element={<Index />} />
+
+            {/* Info Pages - Public */}
+            <Route path="/info/teacher" element={<InfoTeacher />} />
+            <Route path="/info/admin" element={<InfoAdmin />} />
+            <Route path="/info/system" element={<InfoSystem />} />
 
             {/* Teacher Routes - Public Auth */}
             <Route path="/teacher/auth" element={<TeacherAuth />} />

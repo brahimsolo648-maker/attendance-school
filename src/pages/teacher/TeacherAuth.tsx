@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, ArrowRight, User, Mail, Lock, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,8 @@ const registerSchema = z.object({
 
 const TeacherAuth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'register' ? 'register' : 'login';
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -101,11 +103,38 @@ const TeacherAuth = () => {
     try {
       const email = loginEmail.trim().toLowerCase();
       
+      // Helper: sign-in with one retry on transient/network errors.
+      const signInWithRetry = async () => {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const result = await supabase.auth.signInWithPassword({
+              email,
+              password: loginPassword,
+            });
+            // Retry only on clearly-transient network failures.
+            const msg = result.error?.message?.toLowerCase() || '';
+            const isNetwork =
+              msg.includes('failed to fetch') ||
+              msg.includes('networkerror') ||
+              msg.includes('load failed');
+            if (isNetwork && attempt === 0) {
+              await new Promise((r) => setTimeout(r, 600));
+              continue;
+            }
+            return result;
+          } catch (err: any) {
+            if (attempt === 0) {
+              await new Promise((r) => setTimeout(r, 600));
+              continue;
+            }
+            return { data: { user: null, session: null }, error: err };
+          }
+        }
+        return { data: { user: null, session: null }, error: new Error('Sign-in failed') };
+      };
+
       // Step 1: Try to sign in directly first (most common case)
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password: loginPassword,
-      });
+      const { data: signInData, error: signInError } = await signInWithRetry();
 
       if (!signInError && signInData.user) {
         // Successfully signed in - check teacher role
@@ -167,6 +196,18 @@ const TeacherAuth = () => {
 
       // Sign in failed - could be wrong password or no auth account
       if (signInError) {
+        // Network error first
+        const errMsg = signInError.message?.toLowerCase() || '';
+        if (errMsg.includes('failed to fetch') || errMsg.includes('networkerror') || errMsg.includes('load failed')) {
+          toast({
+            title: 'خطأ في الاتصال',
+            description: 'تعذّر الاتصال بالخادم، تحقق من الإنترنت وحاول مرة أخرى',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+
         // Check if teacher record exists
         const { data: teacherData } = await supabase
           .from('teachers')
@@ -378,7 +419,7 @@ const TeacherAuth = () => {
             <h1 className="text-2xl font-bold text-foreground">واجهة الأستاذ</h1>
           </div>
 
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs defaultValue={initialTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login" className="text-base font-semibold">لدي حساب</TabsTrigger>
               <TabsTrigger value="register" className="text-base font-semibold">حساب جديد</TabsTrigger>

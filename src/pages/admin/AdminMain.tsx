@@ -59,57 +59,55 @@ const AdminMain = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="content-container py-8">
-        <div className="space-y-8">
+      {/* Main Content - Responsive: stacked on phone (30% layout weight),
+          two-column on desktop (70% layout weight) */}
+      <main className="content-container py-6 lg:py-10 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-8">
+          {/* QR Scan - Primary (entry) */}
+          <Button
+            variant="gradient"
+            size="xl"
+            className="w-full h-32 lg:h-44 text-xl lg:text-2xl flex-col gap-3 active:scale-[0.98]"
+            onClick={() => navigate('/admin/qr-scanner?type=entry')}
+          >
+            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-primary-foreground/20 flex items-center justify-center">
+              <LogIn className="w-8 h-8 lg:w-9 lg:h-9" />
+            </div>
+            تسجيل الدخول - مسح QR
+          </Button>
+
+          {/* QR Scan - Exit */}
+          <Button
+            variant="gradient-accent"
+            size="xl"
+            className="w-full h-32 lg:h-44 text-xl lg:text-2xl flex-col gap-3 active:scale-[0.98]"
+            onClick={() => navigate('/admin/qr-scanner?type=exit')}
+          >
+            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-accent-foreground/20 flex items-center justify-center">
+              <LogOut className="w-8 h-8 lg:w-9 lg:h-9" />
+            </div>
+            تسجيل الخروج - مسح QR
+          </Button>
+
           {/* Quick Actions */}
-          <div className="grid grid-cols-2 gap-4">
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-auto py-4 flex-col gap-2"
-              onClick={() => navigate('/admin/daily-attendance')}
-            >
-              <ClipboardList className="w-6 h-6 text-primary" />
-              <span>قائمة الحضور اليومية</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-auto py-4 flex-col gap-2"
-              onClick={() => navigate('/admin/statistics')}
-            >
-              <BarChart3 className="w-6 h-6 text-primary" />
-              <span>الإحصائيات</span>
-            </Button>
-          </div>
-
-          {/* QR Scan Buttons */}
-          <div className="space-y-4">
-            <Button
-              variant="gradient"
-              size="xl"
-              className="w-full h-32 text-xl flex-col gap-3"
-              onClick={() => navigate('/admin/qr-scanner?type=entry')}
-            >
-              <div className="w-14 h-14 rounded-2xl bg-primary-foreground/20 flex items-center justify-center">
-                <LogIn className="w-8 h-8" />
-              </div>
-              تسجيل الدخول - مسح QR
-            </Button>
-
-            <Button
-              variant="gradient-accent"
-              size="xl"
-              className="w-full h-32 text-xl flex-col gap-3"
-              onClick={() => navigate('/admin/qr-scanner?type=exit')}
-            >
-              <div className="w-14 h-14 rounded-2xl bg-accent-foreground/20 flex items-center justify-center">
-                <LogOut className="w-8 h-8" />
-              </div>
-              تسجيل الخروج - مسح QR
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-auto py-5 lg:py-7 flex-col gap-2 border-2 active:scale-[0.98]"
+            onClick={() => navigate('/admin/daily-attendance')}
+          >
+            <ClipboardList className="w-6 h-6 lg:w-7 lg:h-7 text-primary" />
+            <span className="text-base lg:text-lg">قائمة الحضور اليومية</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-auto py-5 lg:py-7 flex-col gap-2 border-2 active:scale-[0.98]"
+            onClick={() => navigate('/admin/statistics')}
+          >
+            <BarChart3 className="w-6 h-6 lg:w-7 lg:h-7 text-primary" />
+            <span className="text-base lg:text-lg">الإحصائيات</span>
+          </Button>
         </div>
       </main>
     </div>

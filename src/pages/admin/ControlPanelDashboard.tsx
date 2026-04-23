@@ -37,21 +37,21 @@ const ControlPanelDashboard = () => {
             <h1 className="text-lg font-bold text-foreground">لوحة التحكم</h1>
           </div>
 
-          <main className="content-container py-3 flex items-center justify-center" style={{ minHeight: 'calc(100dvh - 120px)' }}>
-            <div className="grid grid-cols-2 gap-3 w-full max-w-md mx-auto">
+          <main className="content-container py-4 flex items-center justify-center max-w-5xl mx-auto" style={{ minHeight: 'calc(100dvh - 120px)' }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-5 w-full">
               {mainActions.map((action) => (
                 <button
                   key={action.label}
                   onClick={() => navigate(action.path)}
-                  className="card-elevated p-4 text-center hover:border-primary border-2 border-border transition-all group active:scale-[0.97]"
+                  className="card-elevated p-4 lg:p-6 text-center hover:border-primary border-2 border-border transition-all group active:scale-[0.97]"
                 >
-                  <div className={`w-11 h-11 rounded-xl bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform mx-auto mb-2 ${action.color}`}>
-                    <action.icon className="w-5 h-5" />
+                  <div className={`w-11 h-11 lg:w-14 lg:h-14 rounded-xl bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform mx-auto mb-2 ${action.color}`}>
+                    <action.icon className="w-5 h-5 lg:w-6 lg:h-6" />
                   </div>
-                  <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
+                  <h3 className="text-sm lg:text-base font-bold text-foreground group-hover:text-primary transition-colors leading-tight">
                     {action.label}
                   </h3>
-                  <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                  <p className="text-[10px] lg:text-xs text-muted-foreground mt-1 leading-tight">
                     {action.description}
                   </p>
                 </button>
