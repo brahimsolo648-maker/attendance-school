@@ -197,8 +197,9 @@ const QRScanner = () => {
           return;
         }
 
-        // Determine gate status based on time
-        const gateStatus = getGateStatus();
+        // Determine gate status based on time, unless admin already granted manual entry
+        const wasManuallyAllowed = dailyStatus?.access_allowed === true && dailyStatus?.gate_status === 'present';
+        const gateStatus = wasManuallyAllowed ? 'present' : getGateStatus();
 
         if (existingRecord) {
           await supabase.from('attendance_records')
@@ -211,7 +212,7 @@ const QRScanner = () => {
 
         // Upsert daily_student_status
         if (gateStatus === 'tardy' || gateStatus === 'absent') {
-          const accessAllowed = gateStatus === 'tardy'; // Tardy can enter, absent cannot by default
+          const accessAllowed = false; // Tardy/absent students require manual admin permission
           
           if (dailyStatus) {
             await supabase.from('daily_student_status')

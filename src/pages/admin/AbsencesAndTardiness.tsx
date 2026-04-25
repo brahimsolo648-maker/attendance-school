@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Search, FileDown, Printer, ShieldCheck, Clock, UserX, Download, DoorOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -108,6 +108,54 @@ const AbsencesAndTardiness = () => {
     refetchInterval: 10000,
   });
 
+  useEffect(() => {
+    if (!timeStatus.pastTardy || allStudents.length === 0) return;
+
+    const persistAutoStatuses = async () => {
+      const statusMap = new Map(dailyStatuses.map((s) => [s.student_id, s]));
+      const checkedInIds = new Set(attendanceRecords.filter((r) => r.check_in_time).map((r) => r.student_id));
+      const targetStatus = timeStatus.pastAbsent ? 'absent' : 'tardy';
+
+      const rowsToPersist = allStudents
+        .filter((student) => !checkedInIds.has(student.id))
+        .filter((student) => {
+          const existing = statusMap.get(student.id);
+          return !existing || (!existing.access_allowed && existing.gate_status !== targetStatus);
+        })
+        .map((student) => ({
+          student_id: student.id,
+          date: today,
+          gate_status: targetStatus,
+          access_allowed: false,
+        }));
+
+      if (rowsToPersist.length === 0) return;
+
+      const inserts = rowsToPersist.filter((row) => !statusMap.has(row.student_id));
+      const updates = rowsToPersist.filter((row) => statusMap.has(row.student_id));
+
+      const insertResult = inserts.length
+        ? await supabase.from('daily_student_status').insert(inserts)
+        : { error: null };
+
+      const updateResults = await Promise.all(
+        updates.map((row) => {
+          const existing = statusMap.get(row.student_id);
+          return supabase
+            .from('daily_student_status')
+            .update({ gate_status: row.gate_status, access_allowed: false })
+            .eq('id', existing!.id);
+        })
+      );
+
+      if (!insertResult.error && updateResults.every((result) => !result.error)) {
+        queryClient.invalidateQueries({ queryKey: ['absences-daily-status'] });
+      }
+    };
+
+    persistAutoStatuses();
+  }, [timeStatus, allStudents, attendanceRecords, dailyStatuses, today, queryClient]);
+
   // Fetch teacher-reported absences for today
   const { data: teacherAbsences = [] } = useQuery({
     queryKey: ['teacher-absences-today', today],
@@ -214,7 +262,7 @@ const AbsencesAndTardiness = () => {
         
         // Check if they already have a status with access_allowed=true
         const existingStatus = statusMap.get(student.id);
-        if (existingStatus && existingStatus.access_allowed) continue;
+        if (existingStatus?.access_allowed) continue;
 
         addedStudentIds.add(student.id);
         result.push({

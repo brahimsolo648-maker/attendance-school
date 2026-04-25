@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, Shield, UserPlus } from 'lucide-react';
+import { GraduationCap, Shield } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -67,28 +67,6 @@ const LoginChooserDialog = ({ open, onOpenChange }: LoginChooserDialogProps) => 
             </div>
           </button>
 
-          {/* Divider */}
-          <div className="relative py-2">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-card px-3 text-xs text-muted-foreground font-medium">
-                للأساتذة الجدد
-              </span>
-            </div>
-          </div>
-
-          {/* Create Teacher Account */}
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full border-2 gap-2 active:scale-[0.98]"
-            onClick={() => go('/teacher/auth?tab=register')}
-          >
-            <UserPlus className="w-5 h-5" />
-            إنشاء حساب أستاذ جديد
-          </Button>
         </div>
       </DialogContent>
     </Dialog>
