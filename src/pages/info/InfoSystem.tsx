@@ -82,21 +82,21 @@ const InfoSystem = () => {
           {steps.map((s, i) => (
             <article
               key={s.n}
-              className="rounded-2xl border-2 border-border bg-card p-5 shadow-sm hover:shadow-md transition-shadow animate-fade-in relative"
+              className="rounded-2xl border-2 border-border bg-card p-3 shadow-sm hover:shadow-md transition-shadow animate-fade-in relative"
               style={{ animationDelay: `${i * 60}ms` }}
             >
-              <div className="flex items-start gap-4">
-                <div className="flex flex-col items-center gap-2 shrink-0">
-                  <div className={`w-12 h-12 rounded-2xl ${s.bg} flex items-center justify-center`}>
-                    <s.icon className={`w-6 h-6 ${s.color}`} />
+              <div className="flex items-start gap-3">
+                <div className="flex flex-col items-center gap-1.5 shrink-0">
+                  <div className={`w-8 h-8 rounded-xl ${s.bg} flex items-center justify-center`}>
+                    <s.icon className={`w-4 h-4 ${s.color}`} />
                   </div>
-                  <span className="w-7 h-7 rounded-full bg-foreground text-background text-sm font-bold flex items-center justify-center">
+                  <span className="w-5 h-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center">
                     {s.n}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-xl font-bold text-foreground mb-2 leading-tight">{s.title}</h3>
-                  <p className="text-lg text-muted-foreground leading-relaxed">{s.body}</p>
+                  <h3 className="text-sm font-bold text-foreground mb-1 leading-tight">{s.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{s.body}</p>
                 </div>
               </div>
             </article>
