@@ -13,6 +13,14 @@ type ScanResult = {
   studentName?: string;
 };
 
+const getBarcodeLookupCandidates = (scannedCode: string) => {
+  const raw = scannedCode.trim();
+  const digits = raw.replace(/\D/g, '');
+  const base12 = digits.length === 13 ? digits.slice(0, 12) : digits;
+  const unpadded = base12.replace(/^0+/, '') || '0';
+  return Array.from(new Set([raw, digits, base12, unpadded].filter(Boolean)));
+};
+
 const QRScanner = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -117,14 +125,15 @@ const QRScanner = () => {
     setIsProcessing(true);
     
     try {
-      // Try student_code first, then barcode_number
+      // Try student_code first, then barcode_number/EAN-13 variants
       let student = null;
       let studentError = null;
+      const lookupCandidates = getBarcodeLookupCandidates(scannedCode);
       
       const { data: s1, error: e1 } = await supabase
         .from('students')
         .select('id, first_name, last_name, is_banned, ban_reason')
-        .eq('student_code', scannedCode)
+        .in('student_code', lookupCandidates)
         .maybeSingle();
       
       student = s1;
@@ -135,7 +144,7 @@ const QRScanner = () => {
         const { data: s2, error: e2 } = await supabase
           .from('students')
           .select('id, first_name, last_name, is_banned, ban_reason')
-          .eq('barcode_number', scannedCode.slice(0, 13))
+          .in('barcode_number', lookupCandidates)
           .maybeSingle();
         student = s2;
         studentError = e2;

@@ -77,20 +77,25 @@ const SectionCardsPage = () => {
   const cardRefsMap = useRef<Map<string, CardRefs>>(new Map());
 
   const generateBarcodeNumber = useCallback((studentCode?: string, barcodeNum?: string, studentId?: string): string => {
+    let digits12 = '';
     if (barcodeNum) {
-      return barcodeNum.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
+      digits12 = barcodeNum.replace(/\D/g, '');
+    } else if (studentCode) {
+      digits12 = studentCode.replace(/\D/g, '');
+    } else {
+      const hash = (studentId || '').replace(/-/g, '');
+      for (let i = 0; i < hash.length && digits12.length < 12; i++) {
+        const num = parseInt(hash[i], 16);
+        if (!isNaN(num)) digits12 += (num % 10).toString();
+      }
     }
-    if (studentCode) {
-      return studentCode.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
-    }
-    const hash = (studentId || '').replace(/-/g, '').slice(0, 12);
-    let numericHash = '';
+    digits12 = digits12.padStart(12, '0').slice(0, 12);
+    let sum = 0;
     for (let i = 0; i < 12; i++) {
-      const char = hash[i] || '0';
-      const num = parseInt(char, 16);
-      numericHash += (num % 10).toString();
+      sum += parseInt(digits12[i]) * (i % 2 === 0 ? 1 : 3);
     }
-    return numericHash;
+    const checkDigit = (10 - (sum % 10)) % 10;
+    return digits12 + checkDigit.toString();
   }, []);
 
   const initializeBarcode = useCallback((ref: SVGSVGElement | null, studentCode?: string, barcodeNum?: string, studentId?: string) => {
@@ -100,13 +105,14 @@ const SectionCardsPage = () => {
       const barcodeNumber = generateBarcodeNumber(studentCode, barcodeNum, studentId);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
-        width: 1.2,
-        height: 32,
+        width: 1.35,
+        height: 42,
         displayValue: true,
         fontSize: 8,
-        margin: 2,
+        margin: 6,
         background: '#ffffff',
-        lineColor: '#1e3a5f'
+        lineColor: '#1e3a5f',
+        flat: true
       });
     } catch {
       try {
@@ -150,6 +156,7 @@ const SectionCardsPage = () => {
 
     try {
       const html2canvas = (await import('html2canvas')).default;
+      await document.fonts?.ready;
       
       const cardWidthMM = 90;
       const cardHeightMM = 60;
@@ -424,7 +431,7 @@ const SectionCardsPage = () => {
                         <BackPattern />
                         
                         <div className="relative z-10 text-center py-2">
-                          <p style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff', textShadow: '0 1px 4px rgba(0, 0, 0, 0.15)', letterSpacing: '0.5px' }}>
+                          <p style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff', textShadow: '0 1px 4px rgba(0, 0, 0, 0.15)', fontFamily: 'Noto Sans Arabic, Tahoma, Arial, sans-serif', letterSpacing: 0, lineHeight: 1.6 }}>
                             رموز التعريف الإلكتروني
                           </p>
                         </div>
@@ -460,7 +467,7 @@ const SectionCardsPage = () => {
                               border: '1.5px solid rgba(255, 255, 255, 0.5)',
                               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                             }}>
-                              <svg ref={(ref) => setCardRef(student.id, 'barcode', ref)} style={{ maxWidth: '90px', height: 'auto' }} />
+                              <svg ref={(ref) => setCardRef(student.id, 'barcode', ref)} style={{ width: '118px', maxWidth: '118px', height: 'auto' }} />
                             </div>
                             <span style={{ fontSize: '8px', fontWeight: 600, color: '#ffffff', textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)' }}>
                               باركود EAN
