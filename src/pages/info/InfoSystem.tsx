@@ -95,8 +95,8 @@ const InfoSystem = () => {
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-bold text-foreground mb-2 leading-tight">{s.title}</h3>
-                  <p className="text-base text-muted-foreground leading-relaxed">{s.body}</p>
+                  <h3 className="text-xl font-bold text-foreground mb-2 leading-tight">{s.title}</h3>
+                  <p className="text-lg text-muted-foreground leading-relaxed">{s.body}</p>
                 </div>
               </div>
             </article>
