@@ -86,11 +86,11 @@ const StudentCardPage = () => {
       const barcodeNumber = generateBarcodeNumber(studentCode, barcodeNum, studentId);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
-        width: 1,
-        height: 30,
+        width: 1.35,
+        height: 42,
         displayValue: true,
-        fontSize: 7,
-        margin: 1,
+        fontSize: 8,
+        margin: 6,
         background: '#ffffff',
         lineColor: '#1e3a5f',
         flat: true
@@ -128,6 +128,7 @@ const StudentCardPage = () => {
 
     try {
       const html2canvas = (await import('html2canvas')).default;
+      await document.fonts?.ready;
       
       const cardWidthMM = 90;
       const cardHeightMM = 60;
@@ -174,6 +175,7 @@ const StudentCardPage = () => {
 
     try {
       const html2canvas = (await import('html2canvas')).default;
+      await document.fonts?.ready;
       
       const cardWidthMM = 90;
       const cardHeightMM = 60;
@@ -469,7 +471,9 @@ const StudentCardPage = () => {
                     fontWeight: 700,
                     color: '#ffffff',
                     textShadow: '0 1px 4px rgba(0, 0, 0, 0.15)',
-                    fontFamily: 'Tahoma, Arial, sans-serif'
+                    fontFamily: 'Noto Sans Arabic, Tahoma, Arial, sans-serif',
+                    letterSpacing: 0,
+                    lineHeight: 1.6
                   }}>
                     رموز التعريف الإلكتروني
                   </p>
@@ -514,7 +518,7 @@ const StudentCardPage = () => {
                       border: '1.5px solid rgba(255, 255, 255, 0.5)',
                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                     }}>
-                      <svg ref={backBarcodeRef} style={{ maxWidth: '90px', height: 'auto' }} />
+                      <svg ref={backBarcodeRef} style={{ width: '118px', maxWidth: '118px', height: 'auto' }} />
                     </div>
                     <span style={{ 
                       fontSize: '8px', 
