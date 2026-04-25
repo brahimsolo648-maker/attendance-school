@@ -51,20 +51,25 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
   const backCardRef = useRef<HTMLDivElement>(null);
 
   const generateBarcodeNumber = useCallback((studentCode?: string, barcodeNum?: string, studentId?: string): string => {
+    let digits12 = '';
     if (barcodeNum) {
-      return barcodeNum.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
+      digits12 = barcodeNum.replace(/\D/g, '');
+    } else if (studentCode) {
+      digits12 = studentCode.replace(/\D/g, '');
+    } else {
+      const hash = (studentId || '').replace(/-/g, '');
+      for (let i = 0; i < hash.length && digits12.length < 12; i++) {
+        const num = parseInt(hash[i], 16);
+        if (!isNaN(num)) digits12 += (num % 10).toString();
+      }
     }
-    if (studentCode) {
-      return studentCode.replace(/\D/g, '').padStart(12, '0').slice(0, 12);
-    }
-    const hash = (studentId || '').replace(/-/g, '').slice(0, 12);
-    let numericHash = '';
+    digits12 = digits12.padStart(12, '0').slice(0, 12);
+    let sum = 0;
     for (let i = 0; i < 12; i++) {
-      const char = hash[i] || '0';
-      const num = parseInt(char, 16);
-      numericHash += (num % 10).toString();
+      sum += parseInt(digits12[i]) * (i % 2 === 0 ? 1 : 3);
     }
-    return numericHash;
+    const checkDigit = (10 - (sum % 10)) % 10;
+    return digits12 + checkDigit.toString();
   }, []);
 
   const initializeBarcode = useCallback((ref: SVGSVGElement | null, studentData: Student) => {
@@ -74,13 +79,14 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
       const barcodeNumber = generateBarcodeNumber(studentData.student_code, studentData.barcode_number, studentData.id);
       JsBarcode(ref, barcodeNumber, {
         format: 'EAN13',
-        width: 1.2,
-        height: 30,
+        width: 1.35,
+        height: 42,
         displayValue: true,
         fontSize: 8,
-        margin: 2,
+        margin: 6,
         background: '#ffffff',
-        lineColor: '#1a1a2e'
+        lineColor: '#1a1a2e',
+        flat: true
       });
     } catch {
       try {
@@ -114,6 +120,7 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
 
     try {
       const html2canvas = (await import('html2canvas')).default;
+      await document.fonts?.ready;
       
       // Card: 6cm x 9cm = 60mm x 90mm
       const cardWidthMM = 90;
@@ -286,7 +293,7 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
                   color: 'white'
                 }}
               >
-                <p style={{ fontSize: '8px', fontWeight: 600 }}>رموز التعريف الإلكتروني</p>
+                <p style={{ fontSize: '8px', fontWeight: 600, fontFamily: 'Noto Sans Arabic, Tahoma, Arial, sans-serif', letterSpacing: 0, lineHeight: 1.6 }}>رموز التعريف الإلكتروني</p>
               </div>
 
               {/* QR and Barcode side by side */}
@@ -324,7 +331,7 @@ const StudentCardModal = ({ open, onOpenChange, student }: StudentCardModalProps
                       border: '1px solid rgba(67, 97, 238, 0.2)'
                     }}
                   >
-                    <svg ref={backBarcodeRef} style={{ maxWidth: '80px', height: 'auto' }} />
+                    <svg ref={backBarcodeRef} style={{ width: '108px', maxWidth: '108px', height: 'auto' }} />
                   </div>
                   <span style={{ fontSize: '6px', fontWeight: 600, color: '#4361ee' }}>باركود EAN</span>
                 </div>
