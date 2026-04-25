@@ -116,7 +116,7 @@ const AbsencesAndTardiness = () => {
       const checkedInIds = new Set(attendanceRecords.filter((r) => r.check_in_time).map((r) => r.student_id));
       const targetStatus = timeStatus.pastAbsent ? 'absent' : 'tardy';
 
-      const rowsToInsert = allStudents
+      const rowsToPersist = allStudents
         .filter((student) => !checkedInIds.has(student.id))
         .filter((student) => {
           const existing = statusMap.get(student.id);
@@ -129,13 +129,26 @@ const AbsencesAndTardiness = () => {
           access_allowed: false,
         }));
 
-      if (rowsToInsert.length === 0) return;
+      if (rowsToPersist.length === 0) return;
 
-      const { error } = await supabase
-        .from('daily_student_status')
-        .upsert(rowsToInsert, { onConflict: 'student_id,date' });
+      const inserts = rowsToPersist.filter((row) => !statusMap.has(row.student_id));
+      const updates = rowsToPersist.filter((row) => statusMap.has(row.student_id));
 
-      if (!error) {
+      const insertResult = inserts.length
+        ? await supabase.from('daily_student_status').insert(inserts)
+        : { error: null };
+
+      const updateResults = await Promise.all(
+        updates.map((row) => {
+          const existing = statusMap.get(row.student_id);
+          return supabase
+            .from('daily_student_status')
+            .update({ gate_status: row.gate_status, access_allowed: false })
+            .eq('id', existing!.id);
+        })
+      );
+
+      if (!insertResult.error && updateResults.every((result) => !result.error)) {
         queryClient.invalidateQueries({ queryKey: ['absences-daily-status'] });
       }
     };
