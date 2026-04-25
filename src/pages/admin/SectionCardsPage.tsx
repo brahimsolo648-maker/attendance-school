@@ -431,7 +431,7 @@ const SectionCardsPage = () => {
                         <BackPattern />
                         
                         <div className="relative z-10 text-center py-2">
-                          <p style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff', textShadow: '0 1px 4px rgba(0, 0, 0, 0.15)', letterSpacing: '0.5px' }}>
+                          <p style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff', textShadow: '0 1px 4px rgba(0, 0, 0, 0.15)', fontFamily: 'Noto Sans Arabic, Tahoma, Arial, sans-serif', letterSpacing: 0, lineHeight: 1.6 }}>
                             رموز التعريف الإلكتروني
                           </p>
                         </div>
@@ -467,7 +467,7 @@ const SectionCardsPage = () => {
                               border: '1.5px solid rgba(255, 255, 255, 0.5)',
                               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                             }}>
-                              <svg ref={(ref) => setCardRef(student.id, 'barcode', ref)} style={{ maxWidth: '90px', height: 'auto' }} />
+                              <svg ref={(ref) => setCardRef(student.id, 'barcode', ref)} style={{ width: '118px', maxWidth: '118px', height: 'auto' }} />
                             </div>
                             <span style={{ fontSize: '8px', fontWeight: 600, color: '#ffffff', textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)' }}>
                               باركود EAN
