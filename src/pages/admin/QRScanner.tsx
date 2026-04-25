@@ -197,8 +197,9 @@ const QRScanner = () => {
           return;
         }
 
-        // Determine gate status based on time
-        const gateStatus = getGateStatus();
+        // Determine gate status based on time, unless admin already granted manual entry
+        const wasManuallyAllowed = dailyStatus?.access_allowed === true && dailyStatus?.gate_status === 'present';
+        const gateStatus = wasManuallyAllowed ? 'present' : getGateStatus();
 
         if (existingRecord) {
           await supabase.from('attendance_records')
