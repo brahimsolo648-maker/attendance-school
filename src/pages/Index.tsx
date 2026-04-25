@@ -61,8 +61,8 @@ const Index = () => {
             <p className="text-xs font-bold text-foreground leading-tight">SchoolOS</p>
             <p className="text-[10px] text-muted-foreground leading-tight">v1.0</p>
           </div>
-          <div className="w-10 h-10 rounded-xl overflow-hidden bg-card border-2 border-border p-0.5">
-            <img src={schoolIcon} alt="SchoolOS" className="w-full h-full object-contain" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden bg-card border-2 border-border">
+            <img src={schoolIcon} alt="SchoolOS" className="w-full h-full object-cover scale-110" />
           </div>
         </div>
       </header>
@@ -71,8 +71,8 @@ const Index = () => {
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 pb-6 max-w-5xl mx-auto w-full">
         {/* Brand */}
         <div className="text-center mb-6 sm:mb-8 animate-fade-in">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto rounded-3xl overflow-hidden bg-card border-2 border-border p-1.5 shadow-md mb-3">
-            <img src={schoolIcon} alt="SchoolOS" className="w-full h-full object-contain" />
+          <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto rounded-3xl overflow-hidden bg-card border-2 border-border shadow-md mb-3">
+            <img src={schoolIcon} alt="SchoolOS" className="w-full h-full object-cover scale-110" />
           </div>
           <h1
             className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground"
