@@ -211,7 +211,7 @@ const QRScanner = () => {
 
         // Upsert daily_student_status
         if (gateStatus === 'tardy' || gateStatus === 'absent') {
-          const accessAllowed = gateStatus === 'tardy'; // Tardy can enter, absent cannot by default
+          const accessAllowed = false; // Tardy/absent students require manual admin permission
           
           if (dailyStatus) {
             await supabase.from('daily_student_status')
