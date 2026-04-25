@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, LogIn, LogOut, ClipboardList, BarChart3 } from 'lucide-react';
+import { Settings, LogIn, ClipboardList, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -62,31 +62,18 @@ const AdminMain = () => {
       {/* Main Content - Responsive: stacked on phone (30% layout weight),
           two-column on desktop (70% layout weight) */}
       <main className="content-container py-6 lg:py-10 max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8">
           {/* QR Scan - Primary (entry) */}
           <Button
             variant="gradient"
             size="xl"
-            className="w-full h-32 lg:h-44 text-xl lg:text-2xl flex-col gap-3 active:scale-[0.98]"
+            className="w-full h-32 lg:h-56 lg:col-span-3 text-xl lg:text-3xl flex-col gap-3 active:scale-[0.98]"
             onClick={() => navigate('/admin/qr-scanner?type=entry')}
           >
             <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-primary-foreground/20 flex items-center justify-center">
               <LogIn className="w-8 h-8 lg:w-9 lg:h-9" />
             </div>
             تسجيل الدخول - مسح QR
-          </Button>
-
-          {/* QR Scan - Exit */}
-          <Button
-            variant="gradient-accent"
-            size="xl"
-            className="w-full h-32 lg:h-44 text-xl lg:text-2xl flex-col gap-3 active:scale-[0.98]"
-            onClick={() => navigate('/admin/qr-scanner?type=exit')}
-          >
-            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-accent-foreground/20 flex items-center justify-center">
-              <LogOut className="w-8 h-8 lg:w-9 lg:h-9" />
-            </div>
-            تسجيل الخروج - مسح QR
           </Button>
 
           {/* Quick Actions */}
